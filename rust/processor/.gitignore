@@ -1,0 +1,7 @@
+ls_mainet.yaml
+.history
+.env
+.vscode
+tmp
+**/*.logs
+**/*.log
