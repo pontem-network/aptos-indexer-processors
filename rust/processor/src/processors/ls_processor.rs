@@ -192,16 +192,14 @@ fn ls_filter_events(ev: &Event) -> bool {
 }
 
 fn ls_gen_type_pref() -> Vec<String> {
-    let r = LS_ADDRESSES
+    LS_ADDRESSES
         .iter()
         .map(clr_hex_address)
         .flat_map(|address| {
             let ad_mod = format!("{address}::liquidity_pool");
             LS_EVENTS.map(|st| format!("{ad_mod}::{st}"))
         })
-        .collect::<Vec<_>>();
-    dbg!(&r);
-    r
+        .collect()
 }
 
 #[inline]
