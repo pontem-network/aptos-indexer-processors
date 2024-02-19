@@ -4,18 +4,11 @@
 use anyhow::Result;
 use clap::Parser;
 use processor::IndexerGrpcProcessorConfig;
-use server_framework::{setup_logging, ServerArgs};
-use tracing::debug;
-use tracing_subscriber::EnvFilter;
+use server_framework::ServerArgs;
 
 const RUNTIME_WORKER_MULTIPLIER: usize = 2;
 
 fn main() -> Result<()> {
-    debug!("main");
-
-    inic_logger();
-    // setup_logging();
-
     let num_cpus = num_cpus::get();
     let worker_threads = (num_cpus * RUNTIME_WORKER_MULTIPLIER).max(16);
     println!(
@@ -35,18 +28,4 @@ fn main() -> Result<()> {
             args.run::<IndexerGrpcProcessorConfig>(tokio::runtime::Handle::current())
                 .await
         })
-}
-
-fn inic_logger() {
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info")))
-            .with_file(true)
-            .with_line_number(true)
-            .with_thread_ids(true)
-            .with_target(false)
-            .with_thread_names(true)
-            .finish(),
-    )
-    .expect("failed to set global default subscriber");
 }
