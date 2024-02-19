@@ -43,13 +43,11 @@ impl GapDetector {
         // Check for gaps
         if self.next_version_to_process != result.start_version {
             self.seen_versions.insert(result.start_version, result);
-            // @todo
-            tracing::trace!("Gap detected");
+            tracing::debug!("Gap detected");
         } else {
             // If no gap is detected, find the latest processed batch without gaps
             self.update_prev_batch(result);
-            // @todo
-            tracing::trace!("No gap detected");
+            tracing::debug!("No gap detected");
         }
 
         Ok(GapDetectorResult {

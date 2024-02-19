@@ -53,13 +53,3 @@ Indexer GRPC parser is to indexer data processor that leverages the indexer grpc
 ### Use a custom parser
 
 - Check our [indexer processors](https://github.com/aptos-labs/aptos-indexer-processors)!
-
-
-# Note
-
-https://aptos.dev/indexer/txn-stream/labs-hosted/
-https://developers.aptoslabs.com
-
-Mainnet: grpc.mainnet.aptoslabs.com:443
-Testnet: grpc.testnet.aptoslabs.com:443
-Devnet: grpc.devnet.aptoslabs.com:443

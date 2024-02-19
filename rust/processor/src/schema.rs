@@ -800,17 +800,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    ls_transactions (hash) {
-        #[max_length = 64]
-        hash -> Varchar,
-        #[max_length = 64]
-        address -> Varchar,
-        transaction -> Jsonb,
-        timestamp -> Timestamp,
-    }
-}
-
-diesel::table! {
     move_modules (transaction_version, write_set_change_index) {
         transaction_version -> Int8,
         write_set_change_index -> Int8,
@@ -1256,7 +1245,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     fungible_asset_metadata,
     indexer_status,
     ledger_infos,
-    ls_transactions,
     move_modules,
     move_resources,
     nft_points,
