@@ -24,9 +24,10 @@ impl ServerArgs {
     where
         C: RunnableConfig,
     {
+        // @todo
         // Set up the server.
-        setup_logging();
-        setup_panic_handler();
+        // setup_logging();
+        // setup_panic_handler();
         let config = load::<GenericConfig<C>>(&self.config_path)?;
         run_server_with_config(config, handle).await
     }

@@ -16,7 +16,7 @@ use kanal::AsyncSender;
 use prost::Message;
 use std::time::Duration;
 use tonic::{Response, Streaming};
-use tracing::{error, info};
+use tracing::{debug, error, info, trace};
 use url::Url;
 
 /// GRPC request metadata key for the token ID.
@@ -266,7 +266,8 @@ pub async fn create_fetcher_loop(
                 let size_in_bytes = r.encoded_len() as u64;
                 let chain_id: u64 = r.chain_id.expect("[Parser] Chain Id doesn't exist.");
 
-                info!(
+                // @todo
+                trace!(
                     processor_name = processor_name,
                     service_type = crate::worker::PROCESSOR_SERVICE_TYPE,
                     stream_address = indexer_grpc_data_service_address.to_string(),
@@ -368,7 +369,8 @@ pub async fn create_fetcher_loop(
                         panic!("[Parser] Error sending GRPC response to channel.")
                     },
                 }
-                info!(
+                // @todo
+                trace!(
                     processor_name = processor_name,
                     service_type = crate::worker::PROCESSOR_SERVICE_TYPE,
                     stream_address = indexer_grpc_data_service_address.to_string(),
