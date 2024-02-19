@@ -804,9 +804,9 @@ diesel::table! {
         #[max_length = 64]
         hash -> Varchar,
         #[max_length = 64]
-        address -> Varchar,
+        sender -> Varchar,
         transaction -> Jsonb,
-        timestamp -> Timestamp,
+        timestamp -> Nullable<Int8>,
     }
 }
 

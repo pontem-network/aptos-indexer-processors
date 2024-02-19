@@ -231,7 +231,6 @@ impl Worker {
         // 5. If it's the wrong chain, panic.
         let mut db_chain_id = None;
         loop {
-            dbg!("====");
             info!(
                 processor_name = processor_name,
                 service_type = PROCESSOR_SERVICE_TYPE,

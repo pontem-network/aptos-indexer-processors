@@ -1938,6 +1938,7 @@ dependencies = [
  "tokio-postgres",
  "tonic 0.10.2",
  "tracing",
+ "tracing-subscriber",
  "unescape",
  "url",
 ]
