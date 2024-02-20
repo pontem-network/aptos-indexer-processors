@@ -15,21 +15,32 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 use super::{ProcessingResult, ProcessorName, ProcessorTrait};
-use crate::schema::ls_transactions::hash as hash_field;
-use crate::utils::database::PgPoolConnection;
-use crate::{schema, schema::ls_transactions, utils::database::PgDbPool};
+use crate::{
+    schema,
+    schema::ls_transactions,
+    schema::ls_transactions::hash as hash_field,
+    utils::database::{PgDbPool, PgPoolConnection},
+};
 
-const USER_TX: i32 = TransactionType::User as i32;
 const LS_EVENTS: [&str; 8] = [
+    // When new pool created.
     "PoolCreatedEvent",
+    // When liquidity added to the pool.
     "LiquidityAddedEvent",
+    // When liquidity removed from the pool.
     "LiquidityRemovedEvent",
+    // When swap happened.
     "SwapEvent",
+    // When flashloan event happened.
     "FlashloanEvent",
+    // When oracle updated (i don't think we need to catch it).
     "OracleUpdatedEvent",
+    // When fee of pool updated.
     "UpdateFeeEvent",
+    // When DAO fee updated for the pool.
     "UpdateDAOFeeEvent",
 ];
+const USER_TX: i32 = TransactionType::User as i32;
 pub const MAX_TX_CHUNCK: usize = 100;
 
 pub struct LsProcessor {
@@ -39,6 +50,11 @@ pub struct LsProcessor {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LsConfigs {
+    // The logic is the same, yet the addresses different, modules deployed at:
+    // 0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e
+    //
+    // Resource account:
+    // 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8
     address: Vec<String>,
 }
 
@@ -206,20 +222,17 @@ fn only_success(tx: Transaction) -> Option<Transaction> {
 fn ls_gen_type_pref(addresses: &[String]) -> Vec<String> {
     addresses
         .iter()
-        .map(clr_hex_address)
+        .map(|address| {
+            format!(
+                "0x{}",
+                address.trim_start_matches("0x").trim_start_matches('0')
+            )
+        })
         .flat_map(|address| {
             let ad_mod = format!("{address}::liquidity_pool");
             LS_EVENTS.map(|st| format!("{ad_mod}::{st}"))
         })
         .collect()
-}
-
-#[inline]
-fn clr_hex_address(address: &String) -> String {
-    format!(
-        "0x{}",
-        address.trim_start_matches("0x").trim_start_matches('0')
-    )
 }
 
 #[derive(Insertable, Debug)]
