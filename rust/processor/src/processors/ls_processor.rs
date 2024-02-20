@@ -11,7 +11,7 @@ use aptos_protos::transaction::v1::{
 use aptos_protos::transaction::v1::{Event, UserTransaction};
 use async_trait::async_trait;
 use diesel_async::RunQueryDsl;
-use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 use super::{ProcessingResult, ProcessorName, ProcessorTrait};
@@ -20,10 +20,6 @@ use crate::utils::database::PgPoolConnection;
 use crate::{schema, schema::ls_transactions, utils::database::PgDbPool};
 
 const USER_TX: i32 = TransactionType::User as i32;
-const LS_ADDRESSES: [&str; 2] = [
-    "0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e",
-    "0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8",
-];
 const LS_EVENTS: [&str; 8] = [
     "PoolCreatedEvent",
     "LiquidityAddedEvent",
@@ -36,15 +32,22 @@ const LS_EVENTS: [&str; 8] = [
 ];
 pub const MAX_TX_CHUNCK: usize = 100;
 
-static LS_TYPE_STR: Lazy<Vec<String>> = Lazy::new(ls_gen_type_pref);
-
 pub struct LsProcessor {
     connection_pool: PgDbPool,
+    ls_type_str: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LsConfigs {
+    address: Vec<String>,
 }
 
 impl LsProcessor {
-    pub fn new(connection_pool: PgDbPool) -> Self {
-        Self { connection_pool }
+    pub fn new(connection_pool: PgDbPool, ls_config: LsConfigs) -> Self {
+        Self {
+            connection_pool,
+            ls_type_str: ls_gen_type_pref(&ls_config.address),
+        }
     }
 }
 
@@ -75,13 +78,13 @@ impl ProcessorTrait for LsProcessor {
         let processing_start = std::time::Instant::now();
         let last_transaction_timstamp = transactions.last().and_then(|t| t.timestamp.clone());
 
-        debug!(?start_version, ?end_version, "process_transactions",);
+        debug!(?start_version, ?end_version, "process_transactions");
 
         transactions = transactions
             .into_iter()
             .filter_map(only_user_tx)
             .filter_map(only_success)
-            .filter_map(only_ls_tx)
+            .filter_map(|tx| self.only_ls_tx(tx))
             .collect();
 
         if transactions.is_empty() {
@@ -152,6 +155,45 @@ impl ProcessorTrait for LsProcessor {
     }
 }
 
+impl LsProcessor {
+    fn only_ls_tx(&self, tx: Transaction) -> Option<Transaction> {
+        let usr_tx = unwrap_usr_tx(&tx)?;
+        usr_tx
+            .events
+            .iter()
+            .any(|ev| self.ls_filter_events(ev))
+            .then_some(tx)
+    }
+
+    // // When new pool created.
+    // PoolCreatedEvent
+    // // When liquidity added to the pool.
+    // LiquidityAddedEvent
+    // // When liquidity removed from the pool.
+    // LiquidityRemovedEvent
+    // // When swap happened.
+    // SwapEvent
+    // // When flashloan event happened.
+    // FlashloanEvent
+    // // When oracle updated (i don't think we need to catch it).
+    // OracleUpdatedEvent
+    // // When fee of pool updated.
+    // UpdateFeeEvent
+    // // When DAO fee updated for the pool.
+    // UpdateDAOFeeEvent
+    // = = =
+    // The logic is the same, yet the addresses different, modules deployed at:
+    // 0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e
+    //
+    // Resource account:
+    // 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8
+    fn ls_filter_events(&self, ev: &Event) -> bool {
+        self.ls_type_str
+            .iter()
+            .any(|pref| ev.type_str.starts_with(pref))
+    }
+}
+
 fn only_user_tx(tx: Transaction) -> Option<Transaction> {
     matches!(tx.r#type, USER_TX).then_some(tx)
 }
@@ -160,39 +202,9 @@ fn only_success(tx: Transaction) -> Option<Transaction> {
     tx.info.as_ref()?.success.then_some(tx)
 }
 
-fn only_ls_tx(tx: Transaction) -> Option<Transaction> {
-    let usr_tx = unwrap_usr_tx(&tx)?;
-    usr_tx.events.iter().any(ls_filter_events).then_some(tx)
-}
-
-// // When new pool created.
-// PoolCreatedEvent
-// // When liquidity added to the pool.
-// LiquidityAddedEvent
-// // When liquidity removed from the pool.
-// LiquidityRemovedEvent
-// // When swap happened.
-// SwapEvent
-// // When flashloan event happened.
-// FlashloanEvent
-// // When oracle updated (i don't think we need to catch it).
-// OracleUpdatedEvent
-// // When fee of pool updated.
-// UpdateFeeEvent
-// // When DAO fee updated for the pool.
-// UpdateDAOFeeEvent
-// = = =
-// The logic is the same, yet the addresses different, modules deployed at:
-// 0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e
-//
-// Resource account:
-// 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8
-fn ls_filter_events(ev: &Event) -> bool {
-    LS_TYPE_STR.iter().any(|pref| ev.type_str.starts_with(pref))
-}
-
-fn ls_gen_type_pref() -> Vec<String> {
-    LS_ADDRESSES
+#[inline]
+fn ls_gen_type_pref(addresses: &[String]) -> Vec<String> {
+    addresses
         .iter()
         .map(clr_hex_address)
         .flat_map(|address| {
@@ -203,7 +215,7 @@ fn ls_gen_type_pref() -> Vec<String> {
 }
 
 #[inline]
-fn clr_hex_address(address: &&str) -> String {
+fn clr_hex_address(address: &String) -> String {
     format!(
         "0x{}",
         address.trim_start_matches("0x").trim_start_matches('0')

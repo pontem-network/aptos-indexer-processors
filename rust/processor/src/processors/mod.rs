@@ -4,6 +4,13 @@
 // Note: For enum_dispatch to work nicely, it is easiest to have the trait and the enum
 // in the same file (ProcessorTrait and Processor).
 
+use aptos_protos::transaction::v1::Transaction as ProtoTransaction;
+use async_trait::async_trait;
+use diesel::{upsert::excluded, ExpressionMethods};
+use enum_dispatch::enum_dispatch;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+
 pub mod account_transactions_processor;
 pub mod ans_processor;
 pub mod coin_processor;
@@ -35,6 +42,7 @@ use self::{
     token_v2_processor::TokenV2Processor,
     user_transaction_processor::UserTransactionProcessor,
 };
+use crate::processors::ls_processor::LsConfigs;
 use crate::{
     models::processor_status::ProcessorStatus,
     schema::processor_status,
@@ -44,12 +52,6 @@ use crate::{
         util::parse_timestamp,
     },
 };
-use aptos_protos::transaction::v1::Transaction as ProtoTransaction;
-use async_trait::async_trait;
-use diesel::{upsert::excluded, ExpressionMethods};
-use enum_dispatch::enum_dispatch;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 type StartVersion = u64;
 type EndVersion = u64;
@@ -182,7 +184,7 @@ pub enum ProcessorConfig {
     AnsProcessor(AnsProcessorConfig),
     CoinProcessor,
     DefaultProcessor,
-    LsProcessor,
+    LsProcessor(LsConfigs),
     EventsProcessor,
     FungibleAssetProcessor,
     MonitoringProcessor,

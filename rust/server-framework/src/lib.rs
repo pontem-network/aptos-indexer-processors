@@ -22,12 +22,14 @@ pub struct ServerArgs {
 impl ServerArgs {
     pub async fn run<C>(&self, handle: Handle) -> Result<()>
     where
-        C: RunnableConfig,
+        C: RunnableConfig + std::fmt::Debug,
     {
         // Set up the server.
         setup_logging();
-        setup_panic_handler();
+        // @todo
+        // setup_panic_handler();
         let config = load::<GenericConfig<C>>(&self.config_path)?;
+
         run_server_with_config(config, handle).await
     }
 }
