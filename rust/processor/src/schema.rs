@@ -1,5 +1,11 @@
 // @generated automatically by Diesel CLI.
 
+pub mod sql_types {
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "event_type"))]
+    pub struct EventType;
+}
+
 diesel::table! {
     account_transactions (account_address, transaction_version) {
         transaction_version -> Int8,
@@ -800,13 +806,34 @@ diesel::table! {
 }
 
 diesel::table! {
-    ls_transactions (hash) {
+    use diesel::sql_types::*;
+    use super::sql_types::EventType;
+
+    ls_events (id) {
+        id -> Varchar,
         #[max_length = 64]
-        hash -> Varchar,
+        pool_id -> Varchar,
+        tp -> EventType,
+        version -> Int8,
         #[max_length = 64]
+        tx_hash -> Varchar,
+        #[max_length = 66]
         sender -> Varchar,
-        transaction -> Jsonb,
-        timestamp -> Nullable<Int8>,
+        even_type -> Jsonb,
+        timestamp -> Int8,
+    }
+}
+
+diesel::table! {
+    ls_pools (id) {
+        #[max_length = 64]
+        id -> Varchar,
+        x_name -> Varchar,
+        y_name -> Varchar,
+        curve -> Varchar,
+        x_val -> Nullable<Int8>,
+        y_val -> Nullable<Int8>,
+        fee -> Nullable<Int8>,
     }
 }
 
@@ -1256,7 +1283,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     fungible_asset_metadata,
     indexer_status,
     ledger_infos,
-    ls_transactions,
+    ls_events,
+    ls_pools,
     move_modules,
     move_resources,
     nft_points,

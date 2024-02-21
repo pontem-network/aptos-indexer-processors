@@ -24,6 +24,7 @@ bigdecimal.workspace = true
 chrono.workspace = true
 clap.workspace = true
 diesel-async.workspace = true
+diesel-derive-enum.workspace = true
 diesel.workspace = true
 diesel_async_migrations.workspace = true
 diesel_migrations.workspace = true
