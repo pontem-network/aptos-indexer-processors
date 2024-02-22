@@ -372,8 +372,28 @@ impl WriteToDb for Vec<UpdatePool> {
             };
 
             let set_values = TableLsPoolUpdate {
-                x_val: x_val.map(|val| u64_to_bigdecimal((old_x_val + val) as u64)),
-                y_val: y_val.map(|val| u64_to_bigdecimal((old_y_val + val) as u64)),
+                x_val: x_val.map(|val| {
+                    let val = old_x_val + val;
+                    if val < 0 {
+                        panic!("{pool_id}::x_val The value cannot be negative");
+                    }
+                    if val >= u64::MAX as i128 {
+                        panic!("{pool_id}::x_val  exceeds the maximum allowed value");
+                    }
+
+                    u64_to_bigdecimal(val as u64)
+                }),
+                y_val: y_val.map(|val| {
+                    let val = old_y_val + val;
+                    if val < 0 {
+                        panic!("{pool_id}::y_val The value cannot be negative");
+                    }
+                    if val >= u64::MAX as i128 {
+                        panic!("{pool_id}::y_val  exceeds the maximum allowed value");
+                    }
+
+                    u64_to_bigdecimal(val as u64)
+                }),
                 fee: match fee {
                     Some(val) => Some(i64::try_from(val)?),
                     None => None,
