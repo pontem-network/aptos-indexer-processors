@@ -4,6 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use aptos_protos::transaction::v1::{Event, Transaction};
 use bigdecimal::BigDecimal;
 use diesel::{
+    debug_query,
     query_dsl::methods::{FilterDsl, SelectDsl},
     ExpressionMethods,
 };
@@ -56,7 +57,7 @@ impl LsDB {
                     x_val: u64_to_bigdecimal(0),
                     y_val: u64_to_bigdecimal(0),
                     fee: 0,
-                    last_tx_version: i64::try_from(tx.version)?,
+                    last_tx_version: 0,
                 }))
             },
 
@@ -282,6 +283,7 @@ impl UpdatePool {
         };
         Some(result)
     }
+
     fn version(&self) -> Option<i64> {
         let result = match self {
             UpdatePool::Fee { version, .. } | UpdatePool::Val { version, .. } => version,
@@ -342,8 +344,9 @@ impl WriteToDb for Vec<UpdatePool> {
             let Some((version_in_db, _, _)) = pools_in_db.get(pool_id) else {
                 bail!("{pool_id} was not found in the database")
             };
+
             if *version_in_db >= version_in_item {
-                debug!("Old data {item:?}");
+                debug!("Old data {item:?}\n{version_in_db} >= {version_in_item}");
                 continue;
             }
 
@@ -379,10 +382,11 @@ impl WriteToDb for Vec<UpdatePool> {
                 last_tx_version,
             };
 
-            diesel::update(ls_pools::table.filter(ls_pools::columns::id.eq(pool_id)))
-                .set(set_values)
-                .execute(conn)
-                .await?;
+            let query =
+                diesel::update(ls_pools::table.filter(ls_pools::columns::id.eq(pool_id.clone())))
+                    .set(set_values)
+                    .execute(conn)
+                    .await?;
         }
 
         Ok(())

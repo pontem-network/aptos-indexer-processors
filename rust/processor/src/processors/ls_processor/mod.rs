@@ -104,11 +104,7 @@ impl ProcessorTrait for LsProcessor {
         let rows: Vec<LsDB> = transactions
             .iter()
             .map(|tx| LsDB::try_from_tx(&self.ls_config.address, tx))
-            .collect::<Result<Vec<_>>>()
-            .map_err(|err| {
-                error!("{err}");
-                err
-            })?
+            .collect::<Result<Vec<_>>>()?
             .into_iter()
             .flatten()
             .collect();
