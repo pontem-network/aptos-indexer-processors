@@ -68,7 +68,6 @@ impl LsDB {
             | LsEventType::UpdateFeeEvent
             | LsEventType::UpdateDAOFeeEvent => {
                 let pool_type = mv_st.pool_type()?;
-                let pool_id = pool_type.hash();
                 let TransactionInfo {
                     version,
                     tx_hash,

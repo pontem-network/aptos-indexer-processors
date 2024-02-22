@@ -26,7 +26,7 @@ pub type PgPool = Pool<MyDbConnection>;
 pub type PgDbPool = Arc<PgPool>;
 pub type PgPoolConnection<'a> = PooledConnection<'a, MyDbConnection>;
 
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+pub static MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 pub const DEFAULT_MAX_POOL_SIZE: u32 = 30;
 
