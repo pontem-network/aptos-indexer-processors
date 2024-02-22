@@ -831,9 +831,10 @@ diesel::table! {
         x_name -> Varchar,
         y_name -> Varchar,
         curve -> Varchar,
-        x_val -> Nullable<Int8>,
-        y_val -> Nullable<Int8>,
+        x_val -> Numeric,
+        y_val -> Numeric,
         fee -> Nullable<Int8>,
+        last_tx_version -> Int8,
     }
 }
 

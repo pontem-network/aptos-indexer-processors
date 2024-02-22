@@ -10,6 +10,8 @@ use aptos_protos::transaction::v1::Transaction;
 mod db;
 mod mv;
 
+use crate::processors::ls_processor::db::WriteToDb;
+
 use crate::{
     processors::{
         ls_processor::{
@@ -115,18 +117,16 @@ impl ProcessorTrait for LsProcessor {
         let db_insertion_start = std::time::Instant::now();
         let mut conn: PgPoolConnection = self.connection_pool.get().await?;
 
-        for row in rows {
-            row.run(&mut conn).await.map_err(|err| {
-                error!(
-                    start_version = start_version,
-                    end_version = end_version,
-                    processor_name = self.name(),
-                    ?err,
-                    "[Parser] Error inserting transactions to db",
-                );
-                err
-            })?;
-        }
+        rows.write_to_db(&mut conn).await.map_err(|err| {
+            error!(
+                start_version = start_version,
+                end_version = end_version,
+                processor_name = self.name(),
+                ?err,
+                "[Parser] Error inserting transactions to db",
+            );
+            err
+        })?;
 
         let db_insertion_duration_in_secs = db_insertion_start.elapsed().as_secs_f64();
 

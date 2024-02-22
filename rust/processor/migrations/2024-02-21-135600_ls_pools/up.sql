@@ -3,9 +3,10 @@ CREATE TABLE public.ls_pools (
 	x_name varchar NOT NULL,
 	y_name varchar NOT NULL,
 	curve varchar NOT NULL,
-	x_val bigint DEFAULT 0 NULL,
-	y_val bigint DEFAULT 0 NULL,
+	x_val numeric(39) DEFAULT 0 NOT NULL,
+	y_val numeric(39) DEFAULT 0 NOT NULL,
 	fee bigint DEFAULT 0 NULL,
+	"last_tx_version" bigint DEFAULT 0 NOT NULL,
 	CONSTRAINT ls_pools_pk PRIMARY KEY (id)
 );
 
