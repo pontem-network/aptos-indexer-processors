@@ -4,7 +4,6 @@ use anyhow::{anyhow, bail, Result};
 use aptos_protos::transaction::v1::{Event, Transaction};
 use bigdecimal::BigDecimal;
 use diesel::{
-    debug_query,
     query_dsl::methods::{FilterDsl, SelectDsl},
     ExpressionMethods,
 };
@@ -382,11 +381,10 @@ impl WriteToDb for Vec<UpdatePool> {
                 last_tx_version,
             };
 
-            let query =
-                diesel::update(ls_pools::table.filter(ls_pools::columns::id.eq(pool_id.clone())))
-                    .set(set_values)
-                    .execute(conn)
-                    .await?;
+            diesel::update(ls_pools::table.filter(ls_pools::columns::id.eq(pool_id.clone())))
+                .set(set_values)
+                .execute(conn)
+                .await?;
         }
 
         Ok(())
