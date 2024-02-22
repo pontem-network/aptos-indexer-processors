@@ -57,6 +57,7 @@ Indexer GRPC parser is to indexer data processor that leverages the indexer grpc
 
 # Note
 
+```yaml
 health_check_port: 8084
 server_config:
   processor_config:
@@ -66,7 +67,7 @@ server_config:
   indexer_grpc_data_service_address: https://grpc.mainnet.aptoslabs.com:443
   auth_token: <AUTH_TOKEN (see: https://developers.aptoslabs.com)>
   starting_version: 95934000
-
+```
 https://aptos.dev/indexer/txn-stream/labs-hosted/
 https://developers.aptoslabs.com
 
