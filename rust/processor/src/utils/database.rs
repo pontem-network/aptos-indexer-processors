@@ -138,13 +138,6 @@ pub async fn new_db_pool(
     Ok(Arc::new(pool))
 }
 
-/*
-pub async fn get_connection(pool: &PgPool) -> Result<AsyncConnectionWrapper<AsyncPgConnection>, PoolError> {
-    let connection = pool.get().await.unwrap();
-    Ok(AsyncConnectionWrapper::from(connection))
-}
-*/
-
 pub async fn execute_in_chunks<U, T>(
     conn: PgDbPool,
     build_query: fn(Vec<T>) -> (U, Option<&'static str>),
