@@ -91,6 +91,13 @@ impl LsDB {
             },
         }
     }
+
+    pub(crate) fn pool_id(&self) -> &String {
+        match self {
+            LsDB::Pools(p) => &p.id,
+            LsDB::Events(p) => &p.pool_id,
+        }
+    }
 }
 
 #[async_trait]
@@ -378,7 +385,7 @@ impl WriteToDb for Vec<UpdatePool> {
                         panic!("{pool_id}::x_val The value cannot be negative");
                     }
                     if val >= u64::MAX as i128 {
-                        panic!("{pool_id}::x_val  exceeds the maximum allowed value");
+                        panic!("{pool_id}::x_val exceeds the maximum allowed value");
                     }
 
                     u64_to_bigdecimal(val as u64)
