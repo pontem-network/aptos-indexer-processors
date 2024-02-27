@@ -87,6 +87,9 @@ impl LsDB {
                     tx_hash,
                     sender,
                     version,
+                    x_val: 0.into(),
+                    y_val: 0.into(),
+                    fee: 0.into(),
                 }))
             },
         }
@@ -185,6 +188,9 @@ pub struct TableLsEvent {
     pub sender: String,
     pub even_type: serde_json::Value,
     pub timestamp: i64,
+    pub x_val: BigDecimal,
+    pub y_val: BigDecimal,
+    pub fee: i64,
 }
 
 #[async_trait]
