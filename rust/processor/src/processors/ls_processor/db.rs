@@ -3,9 +3,12 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::{anyhow, bail, Result};
 use aptos_protos::transaction::v1::{Event, Transaction};
 use bigdecimal::BigDecimal;
+use bigdecimal::ToPrimitive;
+use diesel::Insertable;
 use diesel::{
+    deserialize::Queryable,
     query_dsl::methods::{FilterDsl, SelectDsl},
-    ExpressionMethods,
+    ExpressionMethods, Selectable,
 };
 use diesel_async::RunQueryDsl;
 use tonic::async_trait;
@@ -16,10 +19,7 @@ use crate::{
         filter_ls_events, EventLs, MoveStructTagLs, TransactionInfo, TransactionLs,
     },
     schema::{self, ls_events, ls_pools},
-    utils::{
-        database::PgPoolConnection,
-        util::{bigdecimal_to_u64, u64_to_bigdecimal},
-    },
+    utils::database::PgPoolConnection,
 };
 
 // Write 100 values at a time to the table
@@ -53,8 +53,8 @@ impl LsDB {
                     x_name: pool_type.x_name,
                     y_name: pool_type.y_name,
                     curve: pool_type.curve,
-                    x_val: u64_to_bigdecimal(0),
-                    y_val: u64_to_bigdecimal(0),
+                    x_val: BigDecimal::from(0),
+                    y_val: BigDecimal::from(0),
                     fee: 0,
                     last_tx_version: 0,
                 }))
@@ -89,13 +89,6 @@ impl LsDB {
                     version,
                 }))
             },
-        }
-    }
-
-    pub(crate) fn pool_id(&self) -> &String {
-        match self {
-            LsDB::Pools(p) => &p.id,
-            LsDB::Events(p) => &p.pool_id,
         }
     }
 }
@@ -134,17 +127,35 @@ impl WriteToDb for Vec<LsDB> {
     }
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Selectable, Queryable, Insertable, Debug, Clone)]
 #[diesel(table_name = ls_pools)]
-pub(crate) struct TableLsPool {
-    id: String,
-    x_name: String,
-    y_name: String,
-    curve: String,
-    x_val: BigDecimal,
-    y_val: BigDecimal,
-    fee: i64,
-    last_tx_version: i64,
+pub struct TableLsPool {
+    pub id: String,
+    pub x_name: String,
+    pub y_name: String,
+    pub curve: String,
+    pub x_val: BigDecimal,
+    pub y_val: BigDecimal,
+    pub fee: i64,
+    pub last_tx_version: i64,
+}
+
+impl TableLsPool {
+    pub async fn save(&self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+        diesel::insert_into(schema::ls_pools::table)
+            .values(self)
+            .on_conflict(schema::ls_pools::id)
+            .do_update()
+            .set((
+                schema::ls_pools::x_val.eq(&self.x_val),
+                schema::ls_pools::y_val.eq(&self.y_val),
+                schema::ls_pools::fee.eq(&self.fee),
+            ))
+            .execute(conn)
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -163,17 +174,17 @@ impl WriteToDb for Vec<TableLsPool> {
     }
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Selectable, Queryable, Insertable, Debug)]
 #[diesel(table_name = ls_events)]
-pub(crate) struct TableLsEvent {
-    id: String,
-    pool_id: String,
-    tp: LsEventType,
-    version: i64,
-    tx_hash: String,
-    sender: String,
-    even_type: serde_json::Value,
-    timestamp: i64,
+pub struct TableLsEvent {
+    pub id: String,
+    pub pool_id: String,
+    pub tp: LsEventType,
+    pub version: i64,
+    pub tx_hash: String,
+    pub sender: String,
+    pub even_type: serde_json::Value,
+    pub timestamp: i64,
 }
 
 #[async_trait]
@@ -199,7 +210,7 @@ impl WriteToDb for Vec<TableLsEvent> {
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::EventType"]
-pub(crate) enum LsEventType {
+pub enum LsEventType {
     // When new pool created.
     PoolCreatedEvent,
     // When liquidity added to the pool.
@@ -313,7 +324,7 @@ impl WriteToDb for Vec<UpdatePool> {
             return Ok(());
         };
 
-        let pools_in_db = ls_pools::table
+        let pools_in_db: HashMap<String, (i64, i128, i128)> = ls_pools::table
             .select((
                 ls_pools::columns::id,
                 ls_pools::columns::last_tx_version,
@@ -329,12 +340,12 @@ impl WriteToDb for Vec<UpdatePool> {
                     pool_id,
                     (
                         last_tx_version,
-                        bigdecimal_to_u64(&x_val) as i128,
-                        bigdecimal_to_u64(&y_val) as i128,
+                        x_val.to_i128().unwrap(),
+                        y_val.to_i128().unwrap(),
                     ),
                 )
             })
-            .collect::<HashMap<_, _>>();
+            .collect();
 
         // HashMap<pool_id, (x_val, y_val, fee)>
         let mut rows: HashMap<String, (i64, Option<i128>, Option<i128>, Option<u64>)> =
@@ -388,7 +399,7 @@ impl WriteToDb for Vec<UpdatePool> {
                         panic!("{pool_id}::x_val exceeds the maximum allowed value");
                     }
 
-                    u64_to_bigdecimal(val as u64)
+                    BigDecimal::from(val)
                 }),
                 y_val: y_val.map(|val| {
                     let val = old_y_val + val;
@@ -399,7 +410,7 @@ impl WriteToDb for Vec<UpdatePool> {
                         panic!("{pool_id}::y_val  exceeds the maximum allowed value");
                     }
 
-                    u64_to_bigdecimal(val as u64)
+                    BigDecimal::from(val)
                 }),
                 fee: match fee {
                     Some(val) => Some(i64::try_from(val)?),

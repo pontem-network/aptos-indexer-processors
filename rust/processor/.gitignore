@@ -5,3 +5,4 @@ ls_mainet.yaml
 tmp
 **/*.logs
 **/*.log
+./*.sql

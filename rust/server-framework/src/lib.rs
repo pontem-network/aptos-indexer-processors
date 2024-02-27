@@ -13,7 +13,7 @@ use warp::{http::Response, Filter};
 
 /// ServerArgs bootstraps a server with all common pieces. And then triggers the run method for
 /// the specific service.
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 pub struct ServerArgs {
     #[clap(short, long, value_parser)]
     pub config_path: PathBuf,

@@ -7,7 +7,7 @@ use tracing::{debug, error};
 
 use aptos_protos::transaction::v1::Transaction;
 
-mod db;
+pub mod db;
 mod mv;
 
 use crate::processors::ls_processor::db::WriteToDb;

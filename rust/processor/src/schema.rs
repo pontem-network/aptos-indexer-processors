@@ -833,7 +833,7 @@ diesel::table! {
         curve -> Varchar,
         x_val -> Numeric,
         y_val -> Numeric,
-        fee -> Nullable<Int8>,
+        fee -> Int8,
         last_tx_version -> Int8,
     }
 }
