@@ -1,0 +1,15 @@
+-- Your SQL goes here
+ALTER TABLE ls_events
+    ALTER COLUMN x_val DROP NOT NULL;
+ALTER TABLE ls_events
+    ALTER COLUMN x_val SET DEFAULT NULL;
+
+ALTER TABLE ls_events
+    ALTER COLUMN y_val DROP NOT NULL;
+ALTER TABLE ls_events
+    ALTER COLUMN y_val SET DEFAULT NULL;
+
+ALTER TABLE ls_events
+    ALTER COLUMN fee DROP NOT NULL;
+ALTER TABLE ls_events
+    ALTER COLUMN fee SET DEFAULT NULL;

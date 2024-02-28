@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
 
     let mut conn: PgPoolConnection = conn_pool.get().await?;
 
-    const LIMIT: i64 = 1000;
+    const LIMIT: i64 = 4000;
 
     for tp in [NotIndexed::Fee, NotIndexed::Val] {
         let count = tp.count(&mut conn).await?;
@@ -71,9 +71,23 @@ impl NotIndexed {
         let query = ls_events::table.select(count(ls_events::id));
         let count = match self {
             NotIndexed::Fee => {
+                // (
+                //  (
+                //      ("ls_events"."fee" = $1)
+                //      OR
+                //      ("ls_events"."fee" IS NULL)
+                //  )
+                //  AND
+                //  (
+                //      ("ls_events"."tp" = $2)
+                //      OR
+                //      ("ls_events"."tp" = $3)
+                //  )
+                // )
+
                 query
                     .filter(
-                        ls_events::fee.eq(0).and(
+                        ls_events::fee.eq(0).or(ls_events::fee.is_null()).and(
                             ls_events::tp
                                 .eq(LsEventType::UpdateFeeEvent)
                                 .or(ls_events::tp.eq(LsEventType::UpdateDAOFeeEvent)),
@@ -83,11 +97,33 @@ impl NotIndexed {
                     .await?
             },
             NotIndexed::Val => {
+                // (
+                //  (
+                //      (("ls_events"."x_val" = $1) OR ("ls_events"."x_val" IS NULL))
+                //      AND
+                //      (("ls_events"."y_val" = $2) OR ("ls_events"."y_val" IS NULL))
+                //  )
+                //  AND
+                //  (
+                //      (
+                //          (("ls_events"."tp" = $3) OR ("ls_events"."tp" = $4))
+                //          OR
+                //          ("ls_events"."tp" = $5)
+                //      )
+                //      OR
+                //      ("ls_events"."tp" = $6)
+                //  )
+                // )
                 query
                     .filter(
                         ls_events::x_val
                             .eq(BigDecimal::zero())
-                            .and(ls_events::y_val.eq(BigDecimal::zero()))
+                            .or(ls_events::x_val.is_null())
+                            .and(
+                                ls_events::y_val
+                                    .eq(BigDecimal::zero())
+                                    .or(ls_events::y_val.is_null()),
+                            )
                             .and(
                                 ls_events::tp
                                     .eq(LsEventType::LiquidityAddedEvent)
@@ -114,7 +150,7 @@ impl NotIndexed {
             NotIndexed::Fee => {
                 ls_events::table
                     .filter(
-                        ls_events::fee.eq(0).and(
+                        ls_events::fee.eq(0).or(ls_events::fee.is_null()).and(
                             ls_events::tp
                                 .eq(LsEventType::UpdateFeeEvent)
                                 .or(ls_events::tp.eq(LsEventType::UpdateDAOFeeEvent)),
@@ -131,7 +167,12 @@ impl NotIndexed {
                     .filter(
                         ls_events::x_val
                             .eq(BigDecimal::zero())
-                            .and(ls_events::y_val.eq(BigDecimal::zero()))
+                            .or(ls_events::x_val.is_null())
+                            .and(
+                                ls_events::y_val
+                                    .eq(BigDecimal::zero())
+                                    .or(ls_events::y_val.is_null()),
+                            )
                             .and(
                                 ls_events::tp
                                     .eq(LsEventType::LiquidityAddedEvent)
@@ -174,42 +215,10 @@ impl UpdateEvent for TableLsEvent {
         let data: ObjEventType = serde_json::from_value(self.even_type.clone())
             .map_err(|err| anyhow!("{err:?}\n{:?}", self.even_type))?;
 
-        let (mut x, mut y, mut fee): (i128, i128, i64) = (0, 0, 0);
+        let (x, y, fee) = data.get_val()?;
 
-        match data {
-            ObjEventType::Added {
-                added_x_val,
-                added_y_val,
-                ..
-            } => {
-                x = added_x_val.parse::<i128>()?;
-                y = added_y_val.parse::<i128>()?;
-            },
-            ObjEventType::Swap {
-                x_in,
-                y_in,
-                x_out,
-                y_out,
-            } => {
-                x = x_in.parse::<i128>()? - x_out.parse::<i128>()?;
-                y = y_in.parse::<i128>()? - y_out.parse::<i128>()?;
-            },
-            ObjEventType::Return {
-                returned_x_val,
-                returned_y_val,
-                ..
-            } => {
-                x = returned_x_val.parse::<i128>()?;
-                y = returned_y_val.parse::<i128>()?;
-            },
-            ObjEventType::Last { .. } => {},
-            ObjEventType::NewFee { new_fee } => {
-                fee = new_fee.parse()?;
-            },
-        }
-
-        self.x_val = x.into();
-        self.y_val = y.into();
+        self.x_val = x.map(|v| v.into());
+        self.y_val = y.map(|v| v.into());
         self.fee = fee;
 
         self.update_to_db(conn).await

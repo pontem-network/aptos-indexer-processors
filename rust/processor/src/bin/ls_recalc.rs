@@ -32,6 +32,8 @@ async fn main() -> Result<()> {
     // Set up the server.
     setup_logging();
 
+    todo!();
+
     info!("parsing arguments");
     let args = Cmd::parse();
 

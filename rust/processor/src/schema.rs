@@ -821,9 +821,10 @@ diesel::table! {
         sender -> Varchar,
         even_type -> Jsonb,
         timestamp -> Int8,
-        x_val -> Numeric,
-        y_val -> Numeric,
-        fee -> Int8,
+        x_val -> Nullable<Numeric>,
+        y_val -> Nullable<Numeric>,
+        fee -> Nullable<Int8>,
+        calc -> Bool,
     }
 }
 
