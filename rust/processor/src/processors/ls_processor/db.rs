@@ -388,8 +388,8 @@ impl ObjEventType {
                 returned_y_val,
                 ..
             } => {
-                x = Some(returned_x_val.parse::<i128>()?);
-                y = Some(returned_y_val.parse::<i128>()?);
+                x = Some(-returned_x_val.parse::<i128>()?);
+                y = Some(-returned_y_val.parse::<i128>()?);
             },
             ObjEventType::Last { .. } => {},
             ObjEventType::NewFee { new_fee } => {
