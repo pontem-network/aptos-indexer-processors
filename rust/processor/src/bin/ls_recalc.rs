@@ -1,44 +1,32 @@
-use anyhow::{anyhow, ensure};
 use anyhow::{Context, Result};
-use bigdecimal::{BigDecimal, ToPrimitive};
+use bigdecimal::{BigDecimal, Zero};
 use clap::Parser;
-use diesel::dsl::count;
+use diesel::dsl::{count, sum};
 use serde::Deserialize;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
-use diesel::ExpressionMethods;
 use diesel::QueryDsl;
+use diesel::{BoolExpressionMethods, ExpressionMethods};
 use diesel_async::RunQueryDsl;
 
 use processor::{
-    processors::ls_processor::db::{TableLsEvent, TableLsPool},
+    processors::ls_processor::db::TableLsPool,
     schema::{ls_events, ls_pools},
     utils::database::{new_db_pool, PgPoolConnection},
     IndexerGrpcProcessorConfig,
 };
 use server_framework::{load, setup_logging, GenericConfig, ServerArgs};
 
-#[derive(Debug, Parser)]
-struct Cmd {
-    #[clap(short, long)]
-    fix: bool,
-
-    #[clap(flatten)]
-    server_args: ServerArgs,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // Set up the server.
     setup_logging();
 
-    todo!();
-
     info!("parsing arguments");
-    let args = Cmd::parse();
+    let args = ServerArgs::parse();
 
     info!("loading configurations");
-    let config = load::<GenericConfig<IndexerGrpcProcessorConfig>>(&args.server_args.config_path)?;
+    let config = load::<GenericConfig<IndexerGrpcProcessorConfig>>(&args.config_path)?;
 
     info!("creating a database connection");
     let conn_pool = new_db_pool(
@@ -52,126 +40,71 @@ async fn main() -> Result<()> {
 
     info!("checking and fixing pools");
 
-    let mut pools: Vec<TableLsPool> = ls_pools::table.load(&mut conn).await?;
+    let pools: Vec<TableLsPool> = ls_pools::table.load(&mut conn).await?;
 
-    for pool in &mut pools {
-        fix(&mut conn, pool, args.fix).await?;
+    let all_count = pools.len();
+    for (num, pool) in pools.into_iter().enumerate() {
+        println!("{all_count}: {num}");
+        fix(&mut conn, pool).await?;
     }
 
     Ok(())
 }
 
-async fn fix(conn: &mut PgPoolConnection<'_>, pool: &mut TableLsPool, fix: bool) -> Result<()> {
-    debug!("CHECKING {} ...", &pool.id);
-
-    const LIMIT: i64 = 5000;
-
+async fn fix(conn: &mut PgPoolConnection<'_>, pool: TableLsPool) -> Result<()> {
     let count: i64 = ls_events::table
         .select(count(ls_events::id))
         .filter(ls_events::pool_id.eq(&pool.id))
         .first(conn)
         .await?;
-    let (mut x, mut y, mut fee) = (0, 0, 0);
-    for page in 0.. {
-        let events: Vec<TableLsEvent> = ls_events::table
-            .filter(ls_events::pool_id.eq(&pool.id))
-            .order((ls_events::version.asc(), ls_events::id.asc()))
-            .limit(LIMIT)
-            .offset(page * LIMIT)
-            .load(conn)
-            .await?;
-        println!("{count}: {}", events.len() + (LIMIT * page) as usize);
 
-        let (n_x, n_y, n_fee) = calc_events(pool, &events)?;
-        x += n_x;
-        y += n_y;
-        fee = n_fee;
+    info!("{} Rows: {count}", &pool.id);
 
-        if events.len() != LIMIT as usize {
-            break;
-        }
-    }
+    let fee: Option<i64> = ls_events::table
+        .select(ls_events::fee)
+        .filter(
+            ls_events::pool_id
+                .eq(&pool.id)
+                .and(ls_events::fee.is_not_null())
+                .and(ls_events::fee.ne(0)),
+        )
+        .order(ls_events::version.desc())
+        .first(conn)
+        .await
+        .ok()
+        .and_then(|v| v);
 
-    let expected_x: i128 = pool
-        .x_val
-        .to_i128()
-        .ok_or(anyhow!("pool.x_val.to_i128() empty"))?;
-    let expected_y: i128 = pool
-        .y_val
-        .to_i128()
-        .ok_or(anyhow!("pool.y_val.to_i128() empty"))?;
-    let expected_fee = pool.fee;
+    debug!("{fee:?}");
 
-    if x != expected_x || y != expected_y || fee != expected_fee {
-        let error = format!(
-            "({x}!={expected_x} || {y}!={expected_y} || {fee} != {expected_fee}) pool_id: {}",
-            &pool.id
-        );
-        error!("{error}");
+    let (x_val, y_val): (Option<BigDecimal>, Option<BigDecimal>) = ls_events::table
+        .select((sum(ls_events::x_val), sum(ls_events::y_val)))
+        .filter(
+            ls_events::pool_id.eq(&pool.id).and(
+                ls_events::x_val
+                    .is_not_null()
+                    .and(ls_events::x_val.ne(BigDecimal::zero()))
+                    .or(ls_events::y_val
+                        .is_not_null()
+                        .and(ls_events::y_val.ne(BigDecimal::zero()))),
+            ),
+        )
+        .first(conn)
+        .await?;
 
-        pool.x_val = BigDecimal::from(x);
-        pool.y_val = BigDecimal::from(y);
-        pool.fee = fee;
+    debug!("{x_val:?}");
+    debug!("{y_val:?}");
 
-        ensure!(fix, "{error}");
-
-        info!("Saving new values {}", pool.id);
-        pool.update_to_db(conn).await?;
-    }
-
-    info!("SUCCESS: {}", &pool.id);
+    info!("Saving new values {}", pool.id);
+    diesel::update(ls_pools::table.filter(ls_pools::id.eq(&pool.id)))
+        .set((
+            ls_pools::x_val.eq(x_val.unwrap_or_default()),
+            ls_pools::y_val.eq(y_val.unwrap_or_default()),
+            ls_pools::fee.eq(fee.unwrap_or_default()),
+        ))
+        .execute(conn)
+        .await?;
 
     Ok(())
-}
-
-// x_val, y_val, fee
-fn calc_events(pool: &TableLsPool, events: &Vec<TableLsEvent>) -> Result<(i128, i128, i64)> {
-    let (mut x, mut y, mut fee): (i128, i128, i64) = (0, 0, 0);
-
-    for event in events {
-        if pool.last_tx_version < event.version {
-            continue;
-        }
-
-        let data: ObjEventType = serde_json::from_value(event.even_type.clone())
-            .map_err(|err| anyhow!("{err:?}\n{:?}", event.even_type))?;
-
-        match data {
-            ObjEventType::Added {
-                added_x_val,
-                added_y_val,
-                ..
-            } => {
-                x += added_x_val.parse::<i128>()?;
-                y += added_y_val.parse::<i128>()?;
-            },
-            ObjEventType::Swap {
-                x_in,
-                y_in,
-                x_out,
-                y_out,
-            } => {
-                x += x_in.parse::<i128>().unwrap() - x_out.parse::<i128>().unwrap();
-                y += y_in.parse::<i128>().unwrap() - y_out.parse::<i128>().unwrap();
-            },
-            ObjEventType::Return {
-                returned_x_val,
-                returned_y_val,
-                ..
-            } => {
-                x -= returned_x_val.parse::<i128>().unwrap();
-                y -= returned_y_val.parse::<i128>().unwrap();
-            },
-            ObjEventType::Last { .. } => {
-                continue;
-            },
-            ObjEventType::NewFee { new_fee } => {
-                fee = new_fee.parse().unwrap();
-            },
-        }
-    }
-
-    Ok((x, y, fee))
 }
 
 #[derive(Debug, Deserialize)]

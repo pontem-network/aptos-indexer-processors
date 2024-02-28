@@ -4,7 +4,6 @@ use std::str::FromStr;
 use anyhow::{anyhow, bail, Result};
 use aptos_protos::transaction::v1::{Event, Transaction};
 use bigdecimal::BigDecimal;
-use bigdecimal::ToPrimitive;
 use diesel::Insertable;
 use diesel::{deserialize::Queryable, ExpressionMethods, Selectable};
 use diesel_async::RunQueryDsl;
