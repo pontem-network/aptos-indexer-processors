@@ -2,4 +2,5 @@
 # see diesel.rs/guides/configuring-diesel-cli
 
 [print_schema]
+custom_type_derives = ["diesel::query_builder::QueryId", "diesel::sql_types::SqlType", "std::fmt::Debug"]
 file = "src/schema.rs"

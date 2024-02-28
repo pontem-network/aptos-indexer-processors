@@ -11,6 +11,7 @@ use diesel::{
     ExpressionMethods, Selectable,
 };
 use diesel_async::RunQueryDsl;
+use serde::Deserialize;
 use tonic::async_trait;
 use tracing::debug;
 
@@ -97,13 +98,13 @@ impl LsDB {
 }
 
 #[async_trait]
-pub(crate) trait WriteToDb {
-    async fn write_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()>;
+pub(crate) trait InsertToDb {
+    async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()>;
 }
 
 #[async_trait]
-impl WriteToDb for Vec<LsDB> {
-    async fn write_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+impl InsertToDb for Vec<LsDB> {
+    async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
         let (pools, events): (Vec<_>, Vec<_>) = self
             .into_iter()
             .partition(|row| matches!(row, LsDB::Pools(..)));
@@ -115,7 +116,7 @@ impl WriteToDb for Vec<LsDB> {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        pools.write_to_db(conn).await?;
+        pools.insert_to_db(conn).await?;
 
         let events = events
             .into_iter()
@@ -124,7 +125,7 @@ impl WriteToDb for Vec<LsDB> {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        events.write_to_db(conn).await?;
+        events.insert_to_db(conn).await?;
 
         Ok(())
     }
@@ -144,7 +145,7 @@ pub struct TableLsPool {
 }
 
 impl TableLsPool {
-    pub async fn save(&self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+    pub async fn update_to_db(&self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
         diesel::insert_into(schema::ls_pools::table)
             .values(self)
             .on_conflict(schema::ls_pools::id)
@@ -162,8 +163,8 @@ impl TableLsPool {
 }
 
 #[async_trait]
-impl WriteToDb for Vec<TableLsPool> {
-    async fn write_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+impl InsertToDb for Vec<TableLsPool> {
+    async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
         for rows in self.chunks(TB_CHUNKS_SIZE) {
             diesel::insert_into(schema::ls_pools::table)
                 .values(rows)
@@ -193,9 +194,27 @@ pub struct TableLsEvent {
     pub fee: i64,
 }
 
+impl TableLsEvent {
+    pub async fn update_to_db(&self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+        diesel::insert_into(schema::ls_events::table)
+            .values(self)
+            .on_conflict(schema::ls_events::id)
+            .do_update()
+            .set((
+                schema::ls_events::x_val.eq(&self.x_val),
+                schema::ls_events::y_val.eq(&self.y_val),
+                schema::ls_events::fee.eq(&self.fee),
+            ))
+            .execute(conn)
+            .await?;
+
+        Ok(())
+    }
+}
+
 #[async_trait]
-impl WriteToDb for Vec<TableLsEvent> {
-    async fn write_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+impl InsertToDb for Vec<TableLsEvent> {
+    async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
         for rows in self.chunks(TB_CHUNKS_SIZE) {
             diesel::insert_into(schema::ls_events::table)
                 .values(rows)
@@ -209,12 +228,14 @@ impl WriteToDb for Vec<TableLsEvent> {
             .iter()
             .map(TryFrom::try_from)
             .collect::<Result<Vec<_>>>()?;
-        up_pool.write_to_db(conn).await
+        up_pool.insert_to_db(conn).await
     }
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, diesel_derive_enum::DbEnum)]
+#[derive(
+    Clone, Copy, Debug, diesel_derive_enum::DbEnum, diesel::query_builder::QueryId, PartialEq, Eq,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::EventType"]
 pub enum LsEventType {
     // When new pool created.
@@ -317,8 +338,8 @@ impl UpdatePool {
 }
 
 #[async_trait]
-impl WriteToDb for Vec<UpdatePool> {
-    async fn write_to_db(mut self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
+impl InsertToDb for Vec<UpdatePool> {
+    async fn insert_to_db(mut self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
         use crate::schema::ls_pools;
 
         let pool_ids = self
@@ -580,4 +601,33 @@ impl TryFrom<&TableLsEvent> for UpdatePool {
 
         Ok(op)
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum ObjEventType {
+    Added {
+        added_x_val: String,
+        added_y_val: String,
+        lp_tokens_received: String,
+    },
+    Swap {
+        x_in: String,
+        y_in: String,
+        x_out: String,
+        y_out: String,
+    },
+    Return {
+        returned_x_val: String,
+        returned_y_val: String,
+        lp_tokens_burned: String,
+    },
+    Last {
+        last_price_x_cumulative: String,
+        last_price_y_cumulative: String,
+    },
+    NewFee {
+        new_fee: String,
+    },
 }

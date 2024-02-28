@@ -114,7 +114,7 @@ async fn fix(conn: &mut PgPoolConnection<'_>, pool: &mut TableLsPool, fix: bool)
         ensure!(fix, "{error}");
 
         info!("Saving new values {}", pool.id);
-        pool.save(conn).await?;
+        pool.update_to_db(conn).await?;
     }
 
     info!("SUCCESS: {}", &pool.id);
