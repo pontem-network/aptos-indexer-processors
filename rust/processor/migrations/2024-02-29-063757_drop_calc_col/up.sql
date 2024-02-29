@@ -1,1 +1,2 @@
-DROP function IF exists calc_pool;
+-- Your SQL goes here
+ALTER TABLE ls_events DROP calc;
