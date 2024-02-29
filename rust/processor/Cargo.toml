@@ -13,9 +13,6 @@ publish = false
 repository = "https://github.com/aptos-labs/aptos-core"
 rust-version.workspace = true
 
-[[bin]]
-name = "ls_recalc"
-
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
