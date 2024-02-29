@@ -12,25 +12,13 @@ DECLARE
    	nlast_event int := 0;
     nx_val numeric := 0;
     ny_val numeric := 0;
-	nfee int := 0;   	
-   	
-   	new_x_val numeric := 0;
-   	new_y_val numeric := 0;
-   	allsum_x_val numeric := 0;
-   	allsum_y_val numeric := 0;
+	nfee int := 0;
 begin
-	raise info '= = = ';
-	
 	select lp.last_event, x_val, y_val, fee
 		into olast_event, old_x_val, old_y_val, old_fee
 		from ls_pools lp 
 		where lp.id = fpool_id
 		for NO KEY update;
-	
-	raise info 'olast_event: %', olast_event;
-	raise info 'old_x_val: %', old_x_val;
-	raise info 'old_y_val: %', old_y_val;
-	raise info 'old_fee: %', old_fee;
 	
 	if olast_event is null then return 0; end if;
 
@@ -48,8 +36,6 @@ begin
 		order by le.sq desc 
 		limit 1;
 	
-	raise info 'nlast_event: %', nlast_event;
-	
 	if nlast_event is null or olast_event >= nlast_event then return 0; end if;
 
 	select sum(x_val), sum(y_val), count(id) into nx_val, ny_val, cn
@@ -60,9 +46,6 @@ begin
 
 	if cn = 0 then return 0; end if;
 		
-	raise info 'nx_val: %', nx_val;
-	raise info 'ny_val: %', ny_val;
-
 	select fee into nfee
 		from ls_events le 
 		where 
@@ -72,8 +55,6 @@ begin
 		order by sq desc 
 		limit 1;
 
-	raise info 'nfee: %', nfee;
-	
 	if nfee is null then
 		nfee := old_fee; 
 	end if;
@@ -88,6 +69,6 @@ begin
 		
 	return cn;
 
- end;
+end;
 $$
 language plpgsql;
