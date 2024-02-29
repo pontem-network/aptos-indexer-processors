@@ -156,7 +156,7 @@ impl NotIndexed {
                                 .or(ls_events::tp.eq(LsEventType::UpdateDAOFeeEvent)),
                         ),
                     )
-                    .order((ls_events::version.asc(), ls_events::id.asc()))
+                    .order(ls_events::sq.asc())
                     .limit(limit)
                     .offset(offset)
                     .load(conn)
@@ -181,7 +181,7 @@ impl NotIndexed {
                                     .or(ls_events::tp.eq(LsEventType::FlashloanEvent)),
                             ),
                     )
-                    .order((ls_events::version.asc(), ls_events::id.asc()))
+                    .order(ls_events::sq.asc())
                     .limit(limit)
                     .offset(offset)
                     .load(conn)

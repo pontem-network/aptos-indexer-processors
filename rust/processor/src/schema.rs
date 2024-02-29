@@ -832,7 +832,6 @@ diesel::table! {
         x_val -> Nullable<Numeric>,
         y_val -> Nullable<Numeric>,
         fee -> Nullable<Int8>,
-        calc -> Bool,
         sq -> Int8,
     }
 }
