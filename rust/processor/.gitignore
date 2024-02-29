@@ -2,6 +2,7 @@ ls_mainet.yaml
 .history
 .env
 .env_local
+.env_remote
 .vscode
 tmp
 **/*.logs

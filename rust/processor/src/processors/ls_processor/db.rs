@@ -55,7 +55,7 @@ impl LsDB {
                     x_val: BigDecimal::from(0),
                     y_val: BigDecimal::from(0),
                     fee: 0,
-                    last_tx_version: 0,
+                    last_event: 0,
                 }))
             },
 
@@ -94,7 +94,7 @@ impl LsDB {
                     x_val: x_val.map(|v| v.into()),
                     y_val: y_val.map(|v| v.into()),
                     fee,
-                    calc: false,
+                    sq: None,
                 }))
             },
         }
@@ -145,7 +145,7 @@ pub struct TableLsPool {
     pub x_val: BigDecimal,
     pub y_val: BigDecimal,
     pub fee: i64,
-    pub last_tx_version: i64,
+    pub last_event: i64,
 }
 
 impl TableLsPool {
@@ -199,7 +199,7 @@ pub struct TableLsEvent {
     pub x_val: Option<BigDecimal>,
     pub y_val: Option<BigDecimal>,
     pub fee: Option<i64>,
-    pub calc: bool,
+    pub sq: Option<i64>,
 }
 
 impl TableLsEvent {
@@ -298,15 +298,6 @@ pub(crate) fn sha256_from_str(s: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-#[derive(AsChangeset)]
-#[diesel(table_name = ls_pools)]
-struct TableLsPoolUpdate {
-    fee: Option<i64>,
-    x_val: Option<BigDecimal>,
-    y_val: Option<BigDecimal>,
-    last_tx_version: i64,
-}
-
 #[derive(Debug)]
 pub(crate) struct UpdatePool(String);
 
@@ -316,8 +307,9 @@ impl InsertToDb for Vec<UpdatePool> {
         let pool_ids: BTreeSet<&String> = self.iter().map(|v| &v.0).collect();
 
         for pool_id in pool_ids {
-            let count: i32 = diesel::select(calc_pool(pool_id)).first(conn).await?;
+            debug!("calc_pool: {pool_id}");
 
+            let count: i32 = diesel::select(calc_pool(pool_id)).first(conn).await?;
             debug!("recalc {pool_id}: {count}");
         }
 
