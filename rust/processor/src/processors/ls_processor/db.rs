@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail, Result};
@@ -9,7 +8,7 @@ use diesel::{deserialize::Queryable, ExpressionMethods, Selectable};
 use diesel_async::RunQueryDsl;
 use serde::Deserialize;
 use tonic::async_trait;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::{
     processors::ls_processor::mv::{
@@ -18,8 +17,6 @@ use crate::{
     schema::{self, ls_events, ls_pools},
     utils::database::PgPoolConnection,
 };
-
-sql_function! { fn calc_pool(pool_id: diesel::sql_types::Text) -> diesel::sql_types::Integer; }
 
 // Write 100 values at a time to the table
 const TB_CHUNKS_SIZE: usize = 100;
@@ -234,8 +231,7 @@ impl InsertToDb for Vec<TableLsEvent> {
         }
         info!("{count} TableLsEvent added");
 
-        let up_pool: Vec<UpdatePool> = self.iter().map(From::from).collect::<Vec<_>>();
-        up_pool.insert_to_db(conn).await
+        Ok(())
     }
 }
 
@@ -296,31 +292,6 @@ pub(crate) fn sha256_from_str(s: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(s);
     format!("{:x}", hasher.finalize())
-}
-
-#[derive(Debug)]
-pub(crate) struct UpdatePool(String);
-
-#[async_trait]
-impl InsertToDb for Vec<UpdatePool> {
-    async fn insert_to_db(mut self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
-        let pool_ids: BTreeSet<&String> = self.iter().map(|v| &v.0).collect();
-
-        for pool_id in pool_ids {
-            debug!("calc_pool: {pool_id}");
-
-            let count: i32 = diesel::select(calc_pool(pool_id)).first(conn).await?;
-            debug!("recalc {pool_id}: {count}");
-        }
-
-        Ok(())
-    }
-}
-
-impl From<&TableLsEvent> for UpdatePool {
-    fn from(event: &TableLsEvent) -> Self {
-        UpdatePool(event.pool_id.clone())
-    }
 }
 
 #[derive(Debug, Deserialize)]

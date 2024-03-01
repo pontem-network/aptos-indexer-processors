@@ -1,6 +1,7 @@
--- DROP FUNCTION public.calc_pool(varchar);
+DROP TRIGGER ls_events_after_insert_trigger on ls_events;
+DROP FUNCTION ls_events_after_insert_trigger;
 
-CREATE OR REPLACE FUNCTION calc_pool(fpool_id character varying)
+CREATE OR REPLACE FUNCTION public.calc_pool(fpool_id character varying)
  RETURNS integer
  LANGUAGE plpgsql
 AS $function$
@@ -19,11 +20,16 @@ DECLARE
 begin
 	raise info '= = = ';
 	
+	LOCK TABLE ls_pools IN SHARE UPDATE EXCLUSIVE MODE;
+
 	select lp.last_event, x_val, y_val, fee
-		into olast_event, old_x_val, old_y_val, old_fee
+		into 
+			olast_event, 
+			old_x_val, 
+			old_y_val, 
+			old_fee
 		from ls_pools lp 
-		where lp.id = fpool_id
-		for NO KEY update;
+		where lp.id = fpool_id;
 	
 	raise info 'olast_event: %', olast_event;
 	raise info 'old_x_val: %', old_x_val;
@@ -42,16 +48,17 @@ begin
 	
 	raise info 'nlast_event: %', nlast_event;
 	
-	if nlast_event is null or olast_event >= nlast_event then return 0; end if;
+	if nlast_event is null then return 0; end if;
 
 	select sum(x_val), sum(y_val), count(id) into nx_val, ny_val, cn
 		from ls_events le 
 		where 
 			le.pool_id = fpool_id
-			and le.sq > olast_event and le.sq <= nlast_event;
+			and le.sq > olast_event 
+			and le.sq <= nlast_event;
 
 	if cn = 0 then return 0; end if;
-		
+
 	raise info 'nx_val: %', nx_val;
 	raise info 'ny_val: %', ny_val;
 
@@ -70,14 +77,18 @@ begin
 	if nfee is null then nfee := old_fee; end if;
 	if nx_val is null then nx_val := 0; end if;
 	if ny_val is null then ny_val := 0; end if;
-	
+
+	nx_val := nx_val + old_x_val;
+	ny_val := ny_val + old_y_val;
+
 	update ls_pools 
 		set 
-			x_val = x_val + nx_val, 
-			y_val = y_val + ny_val, 
+			x_val = nx_val, 
+			y_val = ny_val, 
 			fee = nfee, 
 			last_event = nlast_event
-		where id = fpool_id;
+		where 
+			id = fpool_id and last_event = olast_event;
 		
 	return cn;
 
