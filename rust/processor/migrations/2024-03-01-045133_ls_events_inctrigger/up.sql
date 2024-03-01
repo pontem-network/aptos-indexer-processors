@@ -37,5 +37,3 @@ create or replace TRIGGER ls_events_after_insert_trigger
   ON "ls_events"
   FOR EACH ROW
   EXECUTE PROCEDURE ls_events_after_insert_trigger();
-
-DROP FUNCTION calc_pool(varchar);
