@@ -1,1 +1,0 @@
-DROP function IF exists calc_pool;

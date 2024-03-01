@@ -72,5 +72,41 @@ https://aptos.dev/indexer/txn-stream/labs-hosted/
 https://developers.aptoslabs.com
 
 Mainnet: grpc.mainnet.aptoslabs.com:443
+
 Testnet: grpc.testnet.aptoslabs.com:443
+
 Devnet: grpc.devnet.aptoslabs.com:443
+
+
+```sql
+-- checks sum
+select 
+	lp.id, 
+	lp.x_val, le.x_val as nx_val, lp.x_val - le.x_val, 
+	lp.y_val, le.y_val as ny_val, lp.y_val - le.y_val, 
+	lp.last_event, le.sq, lp.last_event - le.sq 
+	from (
+		select le.pool_id, sum(le.x_val) as x_val, sum(le.y_val) as y_val, max(le.sq) as sq
+			from ls_events le
+			group by le.pool_id
+	) le
+	left join ls_pools lp on lp.id = le.pool_id
+	where (lp.x_val != le.x_val or lp.y_val != le.y_val) 
+	order by lp
+```
+
+```sql
+-- recalc sum
+update ls_pools 
+	set x_val = l.nx_val, y_val = l.ny_val, last_event = l.sq
+	from (
+		select lp.id, lp.x_val, le.x_val as nx_val, lp.y_val, le.y_val as ny_val, lp.last_event, le.sq 
+		from (
+			select le.pool_id, sum(le.x_val) as x_val, sum(le.y_val) as y_val, max(le.sq) as sq
+				from ls_events le
+				group by le.pool_id
+		) le
+		left join ls_pools lp on lp.id = le.pool_id
+	) l
+	where ls_pools.id = l.id;
+```
