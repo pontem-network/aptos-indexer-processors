@@ -23,22 +23,28 @@ pub(crate) fn filter_success_tx(tx: Transaction) -> Option<Transaction> {
 }
 
 pub(crate) fn filter_ls_events<'a>(
-    addresses: &'a [String],
+    addresses: &'a [(String, String)],
     tx: &'a Transaction,
-) -> Option<impl Iterator<Item = &'a Event>> {
-    let itr = unwrap_usr_tx(tx)?.events.iter().filter(|ev| {
+) -> Option<impl Iterator<Item = (&'a String, &'a Event)>> {
+    let itr = unwrap_usr_tx(tx)?.events.iter().filter_map(|ev| {
         let ms = match ev.move_struct() {
             Some(mt) => mt,
-            None => return false,
+            None => return None,
         };
-        ms.module == LS_MODULE
-            && addresses.contains(&ms.address)
-            && LsEventType::from_str(&ms.name).is_ok()
+
+        (ms.module == LS_MODULE && LsEventType::from_str(&ms.name).is_ok())
+            .then(|| {
+                addresses
+                    .iter()
+                    .find(|(_version_ls, address)| address == &ms.address)
+                    .map(|(version_ls, _)| (version_ls, ev))
+            })
+            .and_then(|v| v)
     });
     Some(itr)
 }
 
-pub(crate) fn filter_ls_tx(addresses: &[String], tx: Transaction) -> Option<Transaction> {
+pub(crate) fn filter_ls_tx(addresses: &[(String, String)], tx: Transaction) -> Option<Transaction> {
     let result = filter_ls_events(addresses, &tx)?.next().is_some();
 
     result.then_some(tx)

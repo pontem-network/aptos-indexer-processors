@@ -61,12 +61,16 @@ Indexer GRPC parser is to indexer data processor that leverages the indexer grpc
 health_check_port: 8084
 server_config:
   processor_config:
-    address: [0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e, 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8]
+    address:
+      - [v0.5, 0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e] # modules V05 account
+      - [v0.5, 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8] # resources V05 account
+      - [v0, 0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12] # modules V0 account
+      - [v0, 0x05a97986a9d031c4567e15b797be516910cfcb4156312482efc6a19c0a30c948] # resources V0 account
     type: ls_processor
   postgres_connection_string: postgresql://<USER>:<PASSWORD>@localhost:5432/<DB_NAME>
   indexer_grpc_data_service_address: https://grpc.mainnet.aptoslabs.com:443
   auth_token: <AUTH_TOKEN (see: https://developers.aptoslabs.com)>
-  starting_version: 95934000
+  starting_version: 0
 ```
 https://aptos.dev/indexer/txn-stream/labs-hosted/
 https://developers.aptoslabs.com

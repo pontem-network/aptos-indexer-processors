@@ -36,7 +36,9 @@ pub struct LsConfigs {
     //
     // Resource account:
     // 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8
-    address: Vec<String>,
+    //
+    // Vec<(VERSION_LS,ADDRESS)>
+    address: Vec<(String, String)>,
 }
 
 impl LsProcessor {
@@ -44,7 +46,7 @@ impl LsProcessor {
         ls_config
             .address
             .iter_mut()
-            .for_each(|v| *v = clr_hex_address(v));
+            .for_each(|(_version_ls, address)| *address = clr_hex_address(address));
 
         Self {
             connection_pool,

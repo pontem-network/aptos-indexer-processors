@@ -28,14 +28,17 @@ pub(crate) enum LsDB {
 }
 
 impl LsDB {
-    pub(crate) fn try_from_tx(addresses: &[String], tx: &Transaction) -> Result<Vec<LsDB>> {
+    pub(crate) fn try_from_tx(
+        addresses: &[(String, String)],
+        tx: &Transaction,
+    ) -> Result<Vec<LsDB>> {
         filter_ls_events(addresses, tx)
             .ok_or(anyhow!("It is not a user transaction"))?
             .map(|ev| LsDB::try_from_ev_tx(ev, tx))
             .collect::<Result<Vec<_>>>()
     }
 
-    fn try_from_ev_tx(ev: &Event, tx: &Transaction) -> Result<LsDB> {
+    fn try_from_ev_tx((version, ev): (&String, &Event), tx: &Transaction) -> Result<LsDB> {
         let mv_st = ev.move_struct().ok_or(anyhow!("expected Move Struct"))?;
         let event_type = LsEventType::from_str(&mv_st.name)?;
 
@@ -46,6 +49,7 @@ impl LsDB {
 
                 Ok(LsDB::Pools(TableLsPool {
                     id: pool_type.hash(),
+                    version_ls: version.clone(),
                     x_name: pool_type.x_name,
                     y_name: pool_type.y_name,
                     curve: pool_type.curve,
@@ -136,6 +140,7 @@ impl InsertToDb for Vec<LsDB> {
 #[diesel(table_name = ls_pools)]
 pub struct TableLsPool {
     pub id: String,
+    pub version_ls: String,
     pub x_name: String,
     pub y_name: String,
     pub curve: String,

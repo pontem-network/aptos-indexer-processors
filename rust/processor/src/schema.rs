@@ -806,14 +806,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    log_calc (id) {
-        id -> Int8,
-        pool_id -> Nullable<Varchar>,
-        event_id -> Nullable<Varchar>,
-    }
-}
-
-diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::EventType;
 
@@ -847,6 +839,8 @@ diesel::table! {
         y_val -> Numeric,
         fee -> Int8,
         last_event -> Int8,
+        #[max_length = 64]
+        version_ls -> Nullable<Varchar>,
     }
 }
 
@@ -1296,7 +1290,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     fungible_asset_metadata,
     indexer_status,
     ledger_infos,
-    log_calc,
     ls_events,
     ls_pools,
     move_modules,
