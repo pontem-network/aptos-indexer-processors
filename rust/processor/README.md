@@ -92,7 +92,8 @@ select
 	) le
 	left join ls_pools lp on lp.id = le.pool_id
 	where (lp.x_val != le.x_val or lp.y_val != le.y_val) 
-	order by lp
+		and le.sq = lp.last_event
+	order by lp;
 ```
 
 ```sql
