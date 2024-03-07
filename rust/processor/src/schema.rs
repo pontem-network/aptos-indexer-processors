@@ -819,7 +819,7 @@ diesel::table! {
         tx_hash -> Varchar,
         #[max_length = 66]
         sender -> Varchar,
-        even_type -> Jsonb,
+        event -> Jsonb,
         timestamp -> Int8,
         x_val -> Nullable<Numeric>,
         y_val -> Nullable<Numeric>,

@@ -96,7 +96,7 @@ impl LsEvent {
                     id: ev.key()? + "_" + &ev.sequence_number.to_string(),
                     pool_id: pool_type.hash(),
                     tp: event_type,
-                    even_type,
+                    event: even_type,
                     timestamp,
                     tx_hash,
                     sender,

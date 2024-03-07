@@ -62,7 +62,7 @@ pub struct TableLsEvent {
     pub version: i64,
     pub tx_hash: String,
     pub sender: String,
-    pub even_type: serde_json::Value,
+    pub event: serde_json::Value,
     pub timestamp: i64,
     pub x_val: Option<BigDecimal>,
     pub y_val: Option<BigDecimal>,
