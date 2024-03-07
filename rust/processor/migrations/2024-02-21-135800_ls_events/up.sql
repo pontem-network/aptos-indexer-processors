@@ -1,5 +1,5 @@
 CREATE TYPE event_type AS ENUM (
-    'pool_created_event', 
+    'pool_created_event',
 	'liquidity_added_event',
     'liquidity_removed_event',
     'swap_event',

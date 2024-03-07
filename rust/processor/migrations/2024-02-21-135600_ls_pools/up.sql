@@ -14,5 +14,5 @@ CREATE TABLE public.ls_pools (
 
 -- Column comments
 
-COMMENT ON COLUMN public.ls_pools.id IS 'ha256(x_full_name + y_full_name + curve)';
+COMMENT ON COLUMN public.ls_pools.id IS 'sha256(x_full_name + y_full_name + curve)';
 
