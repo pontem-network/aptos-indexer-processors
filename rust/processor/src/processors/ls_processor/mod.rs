@@ -1,44 +1,28 @@
 use std::fmt::Debug;
 
-use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error};
+use tracing::{error, instrument};
 
 use aptos_protos::transaction::v1::Transaction;
 
 pub mod db;
+mod events;
 mod mv;
 
 use crate::processors::ls_processor::db::InsertToDb;
-
 use crate::{
     processors::{
-        ls_processor::{
-            db::LsDB,
-            mv::{clr_hex_address, filter_ls_tx, filter_success_tx, filter_user_tx},
-        },
-        ProcessingResult, ProcessorName, ProcessorTrait,
+        ls_processor::mv::clr_hex_address, ProcessingResult, ProcessorName, ProcessorTrait,
     },
-    // schema::ls_transactions::hash as hash_field,
     utils::database::{PgDbPool, PgPoolConnection},
 };
+
+use self::events::LsEvent;
 
 pub struct LsProcessor {
     connection_pool: PgDbPool,
     ls_config: LsConfigs,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct LsConfigs {
-    // The logic is the same, yet the addresses different, modules deployed at:
-    // 0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e
-    //
-    // Resource account:
-    // 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8
-    //
-    // Vec<(VERSION_LS,ADDRESS)>
-    address: Vec<(String, String)>,
 }
 
 impl LsProcessor {
@@ -72,9 +56,10 @@ impl ProcessorTrait for LsProcessor {
         ProcessorName::LsProcessor.into()
     }
 
+    #[instrument(level = "debug", skip(self, transactions))]
     async fn process_transactions(
         &self,
-        mut transactions: Vec<Transaction>,
+        transactions: Vec<Transaction>,
         start_version: u64,
         end_version: u64,
         _: Option<u64>,
@@ -82,16 +67,9 @@ impl ProcessorTrait for LsProcessor {
         let processing_start = std::time::Instant::now();
         let last_transaction_timstamp = transactions.last().and_then(|t| t.timestamp.clone());
 
-        debug!(?start_version, ?end_version, "process_transactions");
+        let events: Vec<LsEvent> = LsEvent::try_from_txs(&self.ls_config.address, &transactions)?;
 
-        transactions = transactions
-            .into_iter()
-            .filter_map(filter_user_tx)
-            .filter_map(filter_success_tx)
-            .filter_map(|tx| filter_ls_tx(&self.ls_config.address, tx))
-            .collect();
-
-        if transactions.is_empty() {
+        if events.is_empty() {
             let processing_duration_in_secs = processing_start.elapsed().as_secs_f64();
 
             return Ok(ProcessingResult {
@@ -103,19 +81,11 @@ impl ProcessorTrait for LsProcessor {
             });
         }
 
-        let rows: Vec<LsDB> = transactions
-            .iter()
-            .map(|tx| LsDB::try_from_tx(&self.ls_config.address, tx))
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .flatten()
-            .collect();
-
         let processing_duration_in_secs = processing_start.elapsed().as_secs_f64();
         let db_insertion_start = std::time::Instant::now();
         let mut conn: PgPoolConnection = self.connection_pool.get().await?;
 
-        rows.insert_to_db(&mut conn).await.map_err(|err| {
+        events.insert_to_db(&mut conn).await.map_err(|err| {
             error!(
                 start_version = start_version,
                 end_version = end_version,
@@ -140,4 +110,16 @@ impl ProcessorTrait for LsProcessor {
     fn connection_pool(&self) -> &PgDbPool {
         &self.connection_pool
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LsConfigs {
+    // The logic is the same, yet the addresses different, modules deployed at:
+    // 0x0163df34fccbf003ce219d3f1d9e70d140b60622cb9dd47599c25fb2f797ba6e
+    //
+    // Resource account:
+    // 0x61d2c22a6cb7831bee0f48363b0eec92369357aece0d1142062f7d5d85c7bef8
+    //
+    // Vec<(VERSION_LS,ADDRESS)>
+    address: Vec<(String, String)>,
 }

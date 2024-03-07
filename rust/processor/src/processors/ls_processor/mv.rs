@@ -3,29 +3,22 @@ use std::str::FromStr;
 use anyhow::{anyhow, Result};
 use aptos_protos::transaction::v1::{
     move_type::{Content, ReferenceType},
-    transaction::{TransactionType, TxnData},
+    transaction::TxnData,
     Event, MoveStructTag, MoveType, Transaction, UserTransaction,
 };
 
-use super::db::{sha256_from_str, LsEventType};
+use super::db::LsEventType;
 
-pub(crate) const LS_MODULE: &str = "liquidity_pool";
-const USER_TX: i32 = TransactionType::User as i32;
-
-#[inline]
-pub(crate) fn filter_user_tx(tx: Transaction) -> Option<Transaction> {
-    matches!(tx.r#type, USER_TX).then_some(tx)
-}
-
-#[inline]
-pub(crate) fn filter_success_tx(tx: Transaction) -> Option<Transaction> {
-    tx.info.as_ref()?.success.then_some(tx)
-}
+const LS_MODULE: &str = "liquidity_pool";
 
 pub(crate) fn filter_ls_events<'a>(
     addresses: &'a [(String, String)],
     tx: &'a Transaction,
 ) -> Option<impl Iterator<Item = (&'a String, &'a Event)>> {
+    if !tx.info.as_ref()?.success {
+        return None;
+    }
+
     let itr = unwrap_usr_tx(tx)?.events.iter().filter_map(|ev| {
         let ms = match ev.move_struct() {
             Some(mt) => mt,
@@ -44,21 +37,15 @@ pub(crate) fn filter_ls_events<'a>(
     Some(itr)
 }
 
-pub(crate) fn filter_ls_tx(addresses: &[(String, String)], tx: Transaction) -> Option<Transaction> {
-    let result = filter_ls_events(addresses, &tx)?.next().is_some();
-
-    result.then_some(tx)
-}
-
 #[inline]
-pub(crate) fn unwrap_usr_tx(tx: &Transaction) -> Option<&UserTransaction> {
+fn unwrap_usr_tx(tx: &Transaction) -> Option<&UserTransaction> {
     match tx.txn_data.as_ref()? {
         TxnData::User(user_tx, ..) => Some(user_tx),
         _ => None,
     }
 }
 
-pub(crate) fn move_type_to_string(mv: &MoveType) -> Option<String> {
+fn move_type_to_string(mv: &MoveType) -> Option<String> {
     let content = mv.content.as_ref()?;
 
     let result = match content {
@@ -165,7 +152,13 @@ pub(crate) struct PoolType {
 
 impl PoolType {
     pub(crate) fn hash(&self) -> String {
-        sha256_from_str(&format!("{}{}{}", self.x_name, self.y_name, self.curve))
+        use sha2::{Digest, Sha256};
+
+        let uniq_data = format!("{}{}{}", self.x_name, self.y_name, self.curve);
+
+        let mut hasher = Sha256::new();
+        hasher.update(uniq_data);
+        format!("{:x}", hasher.finalize())
     }
 }
 
@@ -186,18 +179,18 @@ impl TryFrom<Vec<String>> for PoolType {
 }
 
 pub(crate) trait TransactionLs {
-    fn info(&self) -> Option<TransactionInfo>;
+    fn info(&self) -> Option<TxInfoForLs>;
 }
 
 impl TransactionLs for Transaction {
-    fn info(&self) -> Option<TransactionInfo> {
+    fn info(&self) -> Option<TxInfoForLs> {
         let version = self.version.try_into().unwrap();
         let info = self.info.as_ref()?;
         let tx_hash = hex::encode(&info.hash);
         let timestamp = self.timestamp.as_ref()?.seconds;
         let sender = clr_hex_address(&unwrap_usr_tx(self)?.request.as_ref()?.sender);
 
-        Some(TransactionInfo {
+        Some(TxInfoForLs {
             version,
             tx_hash,
             timestamp,
@@ -206,7 +199,7 @@ impl TransactionLs for Transaction {
     }
 }
 
-pub(crate) struct TransactionInfo {
+pub(crate) struct TxInfoForLs {
     pub(crate) version: i64,
     pub(crate) tx_hash: String,
     pub(crate) timestamp: i64,
