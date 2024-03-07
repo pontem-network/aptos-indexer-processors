@@ -135,7 +135,6 @@ fn handle_panic(panic_info: &PanicInfo<'_>) {
 pub fn setup_logging() {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info"));
     tracing_subscriber::fmt()
-        // .json()
         .with_file(true)
         .with_line_number(true)
         .with_thread_ids(true)
