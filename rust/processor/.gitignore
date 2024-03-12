@@ -1,0 +1,6 @@
+ls_mainet.yaml
+.env
+.env_local
+.env_remote
+
+./*.sql

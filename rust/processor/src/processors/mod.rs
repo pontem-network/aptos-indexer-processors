@@ -4,8 +4,12 @@
 // Note: For enum_dispatch to work nicely, it is easiest to have the trait and the enum
 // in the same file (ProcessorTrait and Processor).
 
-// Note: For enum_dispatch to work nicely, it is easiest to have the trait and the enum
-// in the same file (ProcessorTrait and Processor).
+use aptos_protos::transaction::v1::Transaction as ProtoTransaction;
+use async_trait::async_trait;
+use diesel::{upsert::excluded, ExpressionMethods};
+use enum_dispatch::enum_dispatch;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 pub mod account_transactions_processor;
 pub mod ans_processor;
@@ -13,6 +17,7 @@ pub mod coin_processor;
 pub mod default_processor;
 pub mod events_processor;
 pub mod fungible_asset_processor;
+pub mod ls_processor;
 pub mod monitoring_processor;
 pub mod nft_metadata_processor;
 pub mod objects_processor;
@@ -28,6 +33,7 @@ use self::{
     default_processor::DefaultProcessor,
     events_processor::EventsProcessor,
     fungible_asset_processor::FungibleAssetProcessor,
+    ls_processor::LsProcessor,
     monitoring_processor::MonitoringProcessor,
     nft_metadata_processor::{NftMetadataProcessor, NftMetadataProcessorConfig},
     objects_processor::ObjectsProcessor,
@@ -36,6 +42,7 @@ use self::{
     token_v2_processor::TokenV2Processor,
     user_transaction_processor::UserTransactionProcessor,
 };
+use crate::processors::ls_processor::LsConfigs;
 use crate::{
     models::processor_status::ProcessorStatus,
     schema::processor_status,
@@ -45,12 +52,6 @@ use crate::{
         util::parse_timestamp,
     },
 };
-use aptos_protos::transaction::v1::Transaction as ProtoTransaction;
-use async_trait::async_trait;
-use diesel::{upsert::excluded, ExpressionMethods};
-use enum_dispatch::enum_dispatch;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 type StartVersion = u64;
 type EndVersion = u64;
@@ -183,6 +184,7 @@ pub enum ProcessorConfig {
     AnsProcessor(AnsProcessorConfig),
     CoinProcessor,
     DefaultProcessor,
+    LsProcessor(LsConfigs),
     EventsProcessor,
     FungibleAssetProcessor,
     MonitoringProcessor,
@@ -224,6 +226,7 @@ pub enum Processor {
     AnsProcessor,
     CoinProcessor,
     DefaultProcessor,
+    LsProcessor,
     EventsProcessor,
     FungibleAssetProcessor,
     MonitoringProcessor,

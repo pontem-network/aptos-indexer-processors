@@ -13,7 +13,7 @@ use warp::{http::Response, Filter};
 
 /// ServerArgs bootstraps a server with all common pieces. And then triggers the run method for
 /// the specific service.
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 pub struct ServerArgs {
     #[clap(short, long, value_parser)]
     pub config_path: PathBuf,
@@ -22,12 +22,14 @@ pub struct ServerArgs {
 impl ServerArgs {
     pub async fn run<C>(&self, handle: Handle) -> Result<()>
     where
-        C: RunnableConfig,
+        C: RunnableConfig + std::fmt::Debug,
     {
         // Set up the server.
         setup_logging();
-        setup_panic_handler();
+        // @todo
+        // setup_panic_handler();
         let config = load::<GenericConfig<C>>(&self.config_path)?;
+
         run_server_with_config(config, handle).await
     }
 }
@@ -131,11 +133,8 @@ fn handle_panic(panic_info: &PanicInfo<'_>) {
 
 /// Set up logging for the server.
 pub fn setup_logging() {
-    let env_filter = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::try_new("info"))
-        .unwrap();
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info"));
     tracing_subscriber::fmt()
-        .json()
         .with_file(true)
         .with_line_number(true)
         .with_thread_ids(true)

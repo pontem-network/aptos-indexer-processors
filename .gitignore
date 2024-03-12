@@ -9,6 +9,12 @@ node_modules/
 **/target
 **/*.rs.bk
 .idea/
+**/.history
+**/tmp
+**/*.logs
+**/*.log
+# VSCode settings
+**/.vscode/
 
 # macOS Specific ignores
 # General
@@ -29,9 +35,5 @@ node_modules/
 .*\#
 \#*\#
 
-# VSCode settings
-.vscode/
-
 # Cached python files
 __pycache__
-

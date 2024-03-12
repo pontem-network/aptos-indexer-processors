@@ -8,11 +8,11 @@ use crate::{
         account_transactions_processor::AccountTransactionsProcessor, ans_processor::AnsProcessor,
         coin_processor::CoinProcessor, default_processor::DefaultProcessor,
         events_processor::EventsProcessor, fungible_asset_processor::FungibleAssetProcessor,
-        monitoring_processor::MonitoringProcessor, nft_metadata_processor::NftMetadataProcessor,
-        objects_processor::ObjectsProcessor, stake_processor::StakeProcessor,
-        token_processor::TokenProcessor, token_v2_processor::TokenV2Processor,
-        user_transaction_processor::UserTransactionProcessor, ProcessingResult, Processor,
-        ProcessorConfig, ProcessorTrait,
+        ls_processor::LsProcessor, monitoring_processor::MonitoringProcessor,
+        nft_metadata_processor::NftMetadataProcessor, objects_processor::ObjectsProcessor,
+        stake_processor::StakeProcessor, token_processor::TokenProcessor,
+        token_v2_processor::TokenV2Processor, user_transaction_processor::UserTransactionProcessor,
+        ProcessingResult, Processor, ProcessorConfig, ProcessorTrait,
     },
     schema::ledger_infos,
     utils::{
@@ -739,6 +739,9 @@ pub fn build_processor(config: &ProcessorConfig, db_pool: PgDbPool) -> Processor
         },
         ProcessorConfig::CoinProcessor => Processor::from(CoinProcessor::new(db_pool)),
         ProcessorConfig::DefaultProcessor => Processor::from(DefaultProcessor::new(db_pool)),
+        ProcessorConfig::LsProcessor(config) => {
+            Processor::from(LsProcessor::new(db_pool, config.clone()))
+        },
         ProcessorConfig::EventsProcessor => Processor::from(EventsProcessor::new(db_pool)),
         ProcessorConfig::FungibleAssetProcessor => {
             Processor::from(FungibleAssetProcessor::new(db_pool))
