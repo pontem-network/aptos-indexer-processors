@@ -21,7 +21,7 @@ CREATE TABLE public.ls_events (
 	"timestamp" bigint NOT NULL,
 	x_val numeric(21),
 	y_val numeric(21),
-	fee int8 NOT NULL,
+	fee int8,
 	CONSTRAINT ls_events_pk PRIMARY KEY (id)
 );
 
