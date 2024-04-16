@@ -75,7 +75,8 @@ impl LsEvent {
             | LsEventType::LiquidityRemovedEvent
             | LsEventType::FlashloanEvent
             | LsEventType::UpdateFeeEvent
-            | LsEventType::UpdateDAOFeeEvent => {
+            | LsEventType::UpdateDAOFeeEvent
+            | LsEventType::CoinDepositedEvent => {
                 let pool_type = mv_st.pool_type()?;
                 let TxInfoForLs {
                     version,
@@ -166,6 +167,10 @@ pub enum ObjEventType {
     NewFee {
         new_fee: String,
     },
+    CoinDepositedEvent {
+        x_val: String,
+        y_val: String,
+    },
 }
 
 impl ObjEventType {
@@ -198,6 +203,10 @@ impl ObjEventType {
             } => {
                 x = Some(-returned_x_val.parse::<i128>()?);
                 y = Some(-returned_y_val.parse::<i128>()?);
+            },
+            ObjEventType::CoinDepositedEvent { x_val, y_val, .. } => {
+                x = Some(-x_val.parse::<i128>()?);
+                y = Some(-y_val.parse::<i128>()?);
             },
             ObjEventType::Last { .. } => {},
             ObjEventType::NewFee { new_fee } => {

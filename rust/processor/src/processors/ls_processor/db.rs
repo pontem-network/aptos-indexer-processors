@@ -37,17 +37,15 @@ pub struct TableLsPool {
 #[async_trait]
 impl InsertToDb for Vec<TableLsPool> {
     async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
-        let count = self.len();
-
         for rows in self.chunks(TB_CHUNKS_SIZE) {
-            diesel::insert_into(schema::ls_pools::table)
+            let count = diesel::insert_into(schema::ls_pools::table)
                 .values(rows)
                 .on_conflict(schema::ls_pools::id)
                 .do_nothing()
                 .execute(conn)
                 .await?;
+            info!("{count} TableLsPool added");
         }
-        info!("{count} TableLsPool added");
 
         Ok(())
     }
@@ -73,16 +71,16 @@ pub struct TableLsEvent {
 #[async_trait]
 impl InsertToDb for Vec<TableLsEvent> {
     async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()> {
-        let count = self.len();
         for rows in self.chunks(TB_CHUNKS_SIZE) {
-            diesel::insert_into(schema::ls_events::table)
+            let count = diesel::insert_into(schema::ls_events::table)
                 .values(rows)
                 .on_conflict(schema::ls_events::id)
                 .do_nothing()
                 .execute(conn)
                 .await?;
+
+            info!("{from}:{count} TableLsEvent added", from = rows.len());
         }
-        info!("{count} TableLsEvent added");
 
         Ok(())
     }
@@ -110,6 +108,8 @@ pub enum LsEventType {
     UpdateFeeEvent,
     // When DAO fee updated for the pool.
     UpdateDAOFeeEvent,
+
+    CoinDepositedEvent,
 }
 
 impl FromStr for LsEventType {
@@ -133,6 +133,7 @@ impl FromStr for LsEventType {
             "UpdateFeeEvent" => LsEventType::UpdateFeeEvent,
             // When DAO fee updated for the pool.
             "UpdateDAOFeeEvent" => LsEventType::UpdateDAOFeeEvent,
+            "CoinDepositedEvent" => LsEventType::CoinDepositedEvent,
             _ => bail!("Unknown event"),
         };
         Ok(result)
