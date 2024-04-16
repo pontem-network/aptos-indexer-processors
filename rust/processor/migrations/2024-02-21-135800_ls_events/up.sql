@@ -18,11 +18,12 @@ CREATE TABLE public.ls_events (
 	"version" bigint NOT NULL,
 	tx_hash varchar(64) NOT NULL,
 	sender varchar(66) NOT NULL,
-	even_type jsonb NOT NULL,
+	"event" jsonb NOT NULL,
 	"timestamp" bigint NOT NULL,
 	x_val numeric(21),
 	y_val numeric(21),
 	fee int8,
+	dao_fee int8,
 	CONSTRAINT ls_events_pk PRIMARY KEY (id)
 );
 

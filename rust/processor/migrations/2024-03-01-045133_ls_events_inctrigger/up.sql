@@ -1,3 +1,4 @@
+
 -- add trigger
 
 CREATE OR REPLACE FUNCTION ls_events_after_insert_trigger()
@@ -7,6 +8,7 @@ begin
 	if new.x_val is null 
 		and new.y_val is null 
 		and new.fee is null 
+		and new.dao_fee is null 
 	then 
 		return new;
 	end if;
@@ -22,7 +24,11 @@ begin
 			),
 			fee = (case 
 				when new.fee is null then fee
-				else new.fee  end
+				else new.fee end
+			),
+			dao_fee = (case 
+				when new.dao_fee is null then dao_fee
+				else new.dao_fee end
 			),
 			last_event = new.sq
 		where lp.id = new.pool_id;
