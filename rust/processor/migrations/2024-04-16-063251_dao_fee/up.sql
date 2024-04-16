@@ -1,3 +1,6 @@
+-- DAO fee
+ALTER TABLE ls_pools ADD COLUMN dao_fee int8 DEFAULT 0 NOT NULL;
+ALTER TABLE ls_events ADD COLUMN dao_fee int8;
 
 -- add trigger
 
