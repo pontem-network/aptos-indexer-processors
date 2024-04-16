@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use aptos_protos::transaction::v1::{Event, Transaction};
 use bigdecimal::BigDecimal;
 use serde::Deserialize;
@@ -65,6 +65,7 @@ impl LsEvent {
                     x_val: BigDecimal::from(0),
                     y_val: BigDecimal::from(0),
                     fee: 0,
+                    dao_fee: 0,
                     last_event: 0,
                 }))
             },
@@ -88,10 +89,29 @@ impl LsEvent {
                 ))?;
 
                 let even_type = ev.data_value()?;
-                let data: ObjEventType = serde_json::from_value(even_type.clone())
+                let mut data: ObjEventType = serde_json::from_value(even_type.clone())
                     .map_err(|err| anyhow!("{err:?}\n{even_type:?}"))?;
 
-                let (x_val, y_val, fee) = data.get_val()?;
+                data = match event_type {
+                    LsEventType::UpdateFeeEvent => ObjEventType::UpdateFee {
+                        new_fee: data.fee().with_context(|| {
+                            format!("fee not found. event_type: {event_type:?}. data: {data:?}")
+                        })?,
+                    },
+                    LsEventType::UpdateDAOFeeEvent => ObjEventType::UpdateDaoFee {
+                        new_fee: data.fee().with_context(|| {
+                            format!("fee not found. event_type: {event_type:?}. data: {data:?}")
+                        })?,
+                    },
+                    _ => data,
+                };
+
+                let EventVal {
+                    x_val,
+                    y_val,
+                    fee,
+                    dao_fee,
+                } = data.get_val()?;
 
                 Ok(LsEvent::Events(TableLsEvent {
                     id: ev.key()? + "_" + &ev.sequence_number.to_string(),
@@ -105,6 +125,7 @@ impl LsEvent {
                     x_val: x_val.map(|v| v.into()),
                     y_val: y_val.map(|v| v.into()),
                     fee,
+                    dao_fee,
                     sq: None,
                 }))
             },
@@ -164,7 +185,10 @@ pub enum ObjEventType {
         last_price_x_cumulative: String,
         last_price_y_cumulative: String,
     },
-    NewFee {
+    UpdateFee {
+        new_fee: String,
+    },
+    UpdateDaoFee {
         new_fee: String,
     },
     CoinDepositedEvent {
@@ -174,9 +198,8 @@ pub enum ObjEventType {
 }
 
 impl ObjEventType {
-    /// (x_val, y_val, fee)
-    pub(crate) fn get_val(&self) -> Result<(Option<i128>, Option<i128>, Option<i64>)> {
-        let (mut x, mut y, mut fee): (Option<i128>, Option<i128>, Option<i64>) = (None, None, None);
+    pub(crate) fn get_val(&self) -> Result<EventVal> {
+        let mut result = EventVal::default();
 
         match self {
             ObjEventType::Added {
@@ -184,8 +207,8 @@ impl ObjEventType {
                 added_y_val,
                 ..
             } => {
-                x = Some(added_x_val.parse::<i128>()?);
-                y = Some(added_y_val.parse::<i128>()?);
+                result.x_val = Some(added_x_val.parse::<i128>()?);
+                result.y_val = Some(added_y_val.parse::<i128>()?);
             },
             ObjEventType::Swap {
                 x_in,
@@ -193,27 +216,48 @@ impl ObjEventType {
                 x_out,
                 y_out,
             } => {
-                x = Some(x_in.parse::<i128>()? - x_out.parse::<i128>()?);
-                y = Some(y_in.parse::<i128>()? - y_out.parse::<i128>()?);
+                result.x_val = Some(x_in.parse::<i128>()? - x_out.parse::<i128>()?);
+                result.y_val = Some(y_in.parse::<i128>()? - y_out.parse::<i128>()?);
             },
             ObjEventType::Return {
                 returned_x_val,
                 returned_y_val,
                 ..
             } => {
-                x = Some(-returned_x_val.parse::<i128>()?);
-                y = Some(-returned_y_val.parse::<i128>()?);
+                result.x_val = Some(-returned_x_val.parse::<i128>()?);
+                result.y_val = Some(-returned_y_val.parse::<i128>()?);
             },
             ObjEventType::CoinDepositedEvent { x_val, y_val, .. } => {
-                x = Some(-x_val.parse::<i128>()?);
-                y = Some(-y_val.parse::<i128>()?);
+                result.x_val = Some(-x_val.parse::<i128>()?);
+                result.y_val = Some(-y_val.parse::<i128>()?);
             },
             ObjEventType::Last { .. } => {},
-            ObjEventType::NewFee { new_fee } => {
-                fee = Some(new_fee.parse()?);
+            ObjEventType::UpdateFee { new_fee } => {
+                result.fee = Some(new_fee.parse()?);
+            },
+            ObjEventType::UpdateDaoFee { new_fee } => {
+                result.dao_fee = Some(new_fee.parse()?);
             },
         }
 
-        Ok((x, y, fee))
+        Ok(result)
     }
+
+    /// @return: fee | dao_fee
+    pub(crate) fn fee(&self) -> Option<String> {
+        match self {
+            ObjEventType::UpdateFee { new_fee } | ObjEventType::UpdateDaoFee { new_fee } => {
+                Some(new_fee.clone())
+            },
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct EventVal {
+    x_val: Option<i128>,
+    y_val: Option<i128>,
+    fee: Option<i64>,
+    dao_fee: Option<i64>,
 }
