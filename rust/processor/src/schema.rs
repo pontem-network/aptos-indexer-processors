@@ -825,6 +825,7 @@ diesel::table! {
         x_val -> Nullable<Numeric>,
         y_val -> Nullable<Numeric>,
         fee -> Nullable<Int8>,
+        dao_fee -> Nullable<Int8>,
     }
 }
 
@@ -841,6 +842,7 @@ diesel::table! {
         last_event -> Int8,
         #[max_length = 8]
         version_ls -> Nullable<Varchar>,
+        dao_fee -> Int8,
     }
 }
 

@@ -31,6 +31,7 @@ pub struct TableLsPool {
     pub x_val: BigDecimal,
     pub y_val: BigDecimal,
     pub fee: i64,
+    pub dao_fee: i64,
     pub last_event: i64,
 }
 
@@ -65,6 +66,7 @@ pub struct TableLsEvent {
     pub x_val: Option<BigDecimal>,
     pub y_val: Option<BigDecimal>,
     pub fee: Option<i64>,
+    pub dao_fee: Option<i64>,
     pub sq: Option<i64>,
 }
 
