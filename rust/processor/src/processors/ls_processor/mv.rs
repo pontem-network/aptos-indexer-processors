@@ -9,7 +9,7 @@ use aptos_protos::transaction::v1::{
 
 use super::db::LsEventType;
 
-const LS_MODULE: &str = "liquidity_pool";
+const LS_MODULE: [&str; 2] = ["liquidity_pool", "dao_storage"];
 
 pub(crate) fn filter_ls_events<'a>(
     addresses: &'a [(String, String)],
@@ -25,7 +25,7 @@ pub(crate) fn filter_ls_events<'a>(
             None => return None,
         };
 
-        (ms.module == LS_MODULE && LsEventType::from_str(&ms.name).is_ok())
+        (LS_MODULE.contains(&ms.module.as_str()) && LsEventType::from_str(&ms.name).is_ok())
             .then(|| {
                 addresses
                     .iter()

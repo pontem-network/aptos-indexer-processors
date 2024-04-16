@@ -810,6 +810,7 @@ diesel::table! {
     use super::sql_types::EventType;
 
     ls_events (id) {
+        sq -> Int8,
         id -> Varchar,
         #[max_length = 64]
         pool_id -> Varchar,
@@ -824,7 +825,6 @@ diesel::table! {
         x_val -> Nullable<Numeric>,
         y_val -> Nullable<Numeric>,
         fee -> Nullable<Int8>,
-        sq -> Int8,
     }
 }
 
@@ -839,7 +839,7 @@ diesel::table! {
         y_val -> Numeric,
         fee -> Int8,
         last_event -> Int8,
-        #[max_length = 64]
+        #[max_length = 8]
         version_ls -> Nullable<Varchar>,
     }
 }
