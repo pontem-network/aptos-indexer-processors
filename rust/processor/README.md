@@ -71,6 +71,7 @@ server_config:
   indexer_grpc_data_service_address: https://grpc.mainnet.aptoslabs.com:443
   auth_token: <AUTH_TOKEN (see: https://developers.aptoslabs.com)>
   starting_version: 0
+  number_concurrent_processing_tasks: 1
 ```
 https://aptos.dev/indexer/txn-stream/labs-hosted/
 https://developers.aptoslabs.com
