@@ -25,7 +25,7 @@ pub(crate) trait InsertToDb {
     async fn insert_to_db(self, conn: &mut PgPoolConnection<'_>) -> Result<()>;
 }
 
-#[derive(Selectable, Queryable, QueryId, AsChangeset, Insertable, Debug, Clone)]
+#[derive(Selectable, Queryable, AsChangeset, Insertable, Debug, Clone)]
 #[diesel(table_name = ls_pools)]
 pub struct TableLsPool {
     pub id: String,
@@ -178,9 +178,7 @@ impl InsertToDb for Vec<TableLsEvent> {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(
-    Clone, Copy, Debug, diesel_derive_enum::DbEnum, diesel::query_builder::QueryId, PartialEq, Eq,
-)]
+#[derive(Clone, Copy, Debug, diesel_derive_enum::DbEnum, PartialEq, Eq)]
 #[ExistingTypePath = "crate::schema::sql_types::EventType"]
 pub enum LsEventType {
     // When new pool created.
