@@ -11,6 +11,7 @@ use super::db::LsEventType;
 
 const LS_MODULE: [&str; 2] = ["liquidity_pool", "dao_storage"];
 
+/// @return (version_ls, event ls)
 pub(crate) fn filter_ls_events<'a>(
     addresses: &'a [(String, String)],
     tx: &'a Transaction,

@@ -2,13 +2,14 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 use aptos_protos::transaction::v1::{Event, Transaction};
-use bigdecimal::BigDecimal;
+
 use serde::Deserialize;
 use tonic::async_trait;
 
 use crate::{
     processors::ls_processor::{
         db::{InsertToDb, LsEventType, TableLsEvent, TableLsPool},
+        info::PoolResourceFromTx,
         mv::{filter_ls_events, EventLs, MoveStructTagLs, TransactionLs, TxInfoForLs},
     },
     utils::database::PgPoolConnection,
@@ -43,32 +44,42 @@ impl LsEvent {
             None => return Ok(Vec::default()),
         };
 
-        it.map(|ev| LsEvent::try_from_ev_tx(ev, transaction))
-            .collect::<Result<Vec<_>>>()
+        let result = it
+            .map(|ev| LsEvent::try_from_ev_tx(ev, transaction))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+        Ok(result)
     }
 
-    fn try_from_ev_tx((version, ev): (&String, &Event), tx: &Transaction) -> Result<LsEvent> {
-        let mv_st = ev.move_struct().ok_or(anyhow!("expected Move Struct"))?;
+    fn try_from_ev_tx(
+        (version_ls, ev_ls): (&String, &Event),
+        tx: &Transaction,
+    ) -> Result<Vec<LsEvent>> {
+        let mv_st = ev_ls.move_struct().ok_or(anyhow!("expected Move Struct"))?;
+        let pool_type = mv_st.pool_type()?;
+
+        // Searching for new values for the pool
+        let pool_row = tx
+            .pool_row_from_resources(
+                mv_st,
+                version_ls,
+                tx.version.try_into().context("tx version")?,
+            )?
+            .map(LsEvent::Pools)
+            .map(|v| vec![v]);
+
         let event_type = LsEventType::from_str(&mv_st.name)?;
 
         match event_type {
             // When new pool created.
-            LsEventType::PoolCreatedEvent => {
-                let pool_type = mv_st.pool_type()?;
-
-                Ok(LsEvent::Pools(TableLsPool {
-                    id: pool_type.hash(),
-                    version_ls: version.clone(),
-                    x_name: pool_type.x_name,
-                    y_name: pool_type.y_name,
-                    curve: pool_type.curve,
-                    x_val: BigDecimal::from(0),
-                    y_val: BigDecimal::from(0),
-                    fee: 0,
-                    dao_fee: 0,
-                    last_event: 0,
-                }))
-            },
+            LsEventType::PoolCreatedEvent => Ok(pool_row.unwrap_or_else(|| {
+                vec![LsEvent::Pools(TableLsPool {
+                    version_ls: version_ls.clone(),
+                    ..(&pool_type).into()
+                })]
+            })),
 
             LsEventType::LiquidityAddedEvent
             | LsEventType::OracleUpdatedEvent
@@ -78,7 +89,6 @@ impl LsEvent {
             | LsEventType::UpdateFeeEvent
             | LsEventType::UpdateDAOFeeEvent
             | LsEventType::CoinDepositedEvent => {
-                let pool_type = mv_st.pool_type()?;
                 let TxInfoForLs {
                     version,
                     tx_hash,
@@ -88,7 +98,7 @@ impl LsEvent {
                     "Not all data could be extracted from the transaction"
                 ))?;
 
-                let even_type = ev.data_value()?;
+                let even_type = ev_ls.data_value()?;
                 let mut data: ObjEventType = serde_json::from_value(even_type.clone())
                     .map_err(|err| anyhow!("{err:?}\n{even_type:?}"))?;
 
@@ -100,7 +110,7 @@ impl LsEvent {
                     },
                     LsEventType::UpdateDAOFeeEvent => ObjEventType::UpdateDaoFee {
                         new_fee: data.fee().with_context(|| {
-                            format!("fee not found. event_type: {event_type:?}. data: {data:?}")
+                            format!("dao fee not found. event_type: {event_type:?}. data: {data:?}")
                         })?,
                     },
                     _ => data,
@@ -113,8 +123,8 @@ impl LsEvent {
                     dao_fee,
                 } = data.get_val()?;
 
-                Ok(LsEvent::Events(TableLsEvent {
-                    id: ev.key()? + "_" + &ev.sequence_number.to_string(),
+                let event_row = LsEvent::Events(TableLsEvent {
+                    id: ev_ls.key()? + "_" + &ev_ls.sequence_number.to_string(),
                     pool_id: pool_type.hash(),
                     tp: event_type,
                     event: even_type,
@@ -127,7 +137,16 @@ impl LsEvent {
                     fee,
                     dao_fee,
                     sq: None,
-                }))
+                });
+
+                let result = match pool_row {
+                    Some(mut result) => {
+                        result.push(event_row);
+                        result
+                    },
+                    None => vec![event_row],
+                };
+                Ok(result)
             },
         }
     }

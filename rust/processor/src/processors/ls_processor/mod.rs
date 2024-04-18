@@ -8,6 +8,7 @@ use aptos_protos::transaction::v1::Transaction;
 
 pub mod db;
 mod events;
+pub(crate) mod info;
 mod mv;
 
 use crate::processors::ls_processor::db::InsertToDb;
