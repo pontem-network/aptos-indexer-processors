@@ -839,9 +839,9 @@ diesel::table! {
         x_val -> Numeric,
         y_val -> Numeric,
         fee -> Int8,
+        dao_fee -> Int8,
         #[max_length = 8]
         version_ls -> Nullable<Varchar>,
-        dao_fee -> Int8,
         last_version -> Int8,
     }
 }
