@@ -7,7 +7,7 @@ CREATE TYPE event_type AS ENUM (
     'oracle_updated_event',
     'update_fee_event',
     'update_dao_fee_event',
-    'coin_deposited_event',
+    'coin_deposited_event'
 );
 
 CREATE TABLE public.ls_events (
