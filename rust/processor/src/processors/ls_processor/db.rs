@@ -110,34 +110,24 @@ trait GroupPool {
 
 impl GroupPool for Vec<TableLsPool> {
     fn group(&mut self) {
-        // Selecting the latest values
-        let mut m = self
+        *self = self
             .iter()
-            .map(|v| (&v.id, &v.last_version))
-            .collect::<Vec<_>>();
-        m.sort_by(|(_, a), (_, b)| a.cmp(b));
-        let max: HashMap<String, i64> = m
-            .into_iter()
-            .collect::<HashMap<_, _>>()
-            .into_iter()
-            .map(|(id, version)| (id.clone(), *version))
+            .fold(
+                HashMap::new(),
+                |mut list: HashMap<String, TableLsPool>, item| {
+                    list.entry(item.id.clone())
+                        .and_modify(|m| {
+                            if m.last_version >= item.last_version {
+                                return;
+                            }
+                            *m = item.clone();
+                        })
+                        .or_insert(item.clone());
+                    list
+                },
+            )
+            .into_values()
             .collect();
-
-        self.retain(|pool| {
-            let max_version = match max.get(&pool.id) {
-                Some(varsion) => varsion,
-                None => return true,
-            };
-            &pool.last_version == max_version
-        });
-
-        // Remove duplicates
-        let unique = self
-            .iter()
-            .map(|pool| (&pool.id, pool))
-            .collect::<HashMap<_, _>>();
-
-        *self = unique.into_values().cloned().collect();
     }
 }
 
