@@ -843,6 +843,7 @@ diesel::table! {
         #[max_length = 8]
         version_ls -> Nullable<Varchar>,
         last_version -> Int8,
+        coin_decimal -> Nullable<Int8>,
     }
 }
 
