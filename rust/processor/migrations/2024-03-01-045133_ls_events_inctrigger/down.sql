@@ -1,2 +1,0 @@
-DROP TRIGGER ls_events_after_insert_trigger on ls_events;
-DROP FUNCTION ls_events_after_insert_trigger;
