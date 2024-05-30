@@ -37,6 +37,8 @@ pub struct TableLsPool {
     pub y_val: BigDecimal,
     pub fee: i64,
     pub dao_fee: i64,
+    // PostgreSQL: int8
+    pub coin_decimal: Option<i64>,
     pub last_version: i64,
 }
 
@@ -52,6 +54,7 @@ impl From<&PoolType> for TableLsPool {
             y_val: BigDecimal::from(0),
             fee: 0,
             dao_fee: 0,
+            coin_decimal: None,
             last_version: 0,
         }
     }
@@ -69,6 +72,7 @@ impl From<PoolType> for TableLsPool {
             y_val: BigDecimal::from(0),
             fee: 0,
             dao_fee: 0,
+            coin_decimal: None,
             last_version: 0,
         }
     }
