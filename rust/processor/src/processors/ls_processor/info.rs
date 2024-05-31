@@ -156,12 +156,13 @@ impl PoolResource {
             .with_context(|| format!("coin_y_reserve value: {}", &self.coin_y_reserve.value))
     }
 }
+
 #[derive(Debug, Deserialize)]
 struct PoolResourceValue {
     value: String,
 }
 
-#[derive(Default, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct PoolCoinInfo {
     decimals: i64,
 }
